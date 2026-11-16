@@ -77,6 +77,20 @@ Local logs are under the approved session temporary directory:
 `wikisavvy-audit-build.log`, `wikisavvy-audit-client-final.log` and
 `wikisavvy-audit-server-final.log`.
 
+### Release preparation follow-up — 2026-11-16 07:09 UTC
+
+The first complete Docker release build caught a test-only TypeScript error in
+the subsequently added navigation test: Testing Library's `queryByRole` options
+do not accept `exact`. The earlier successful workspace build preceded that last
+test addition; Vitest did not type-check it. The test now uses an anchored role
+name regular expression. A fresh complete workspace build and all three affected
+navigation tests pass. This correction changes no runtime application behavior.
+The first image was not built or deployed; a rebuilt image still needs its own
+verification and the corrected source revision needs production confirmation.
+
+The licensing PostgreSQL fixture was also rerun during release preparation:
+all five licensing integration tests passed, as did the 12 audit integration tests.
+
 The fixture scripts bind published ports only on `127.0.0.1`, generate transient
 credentials in memory, and stop only their own uniquely named containers. Cleanup
 was verified by label-scoped container listing.

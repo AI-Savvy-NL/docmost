@@ -56,7 +56,7 @@ describe("Independent audit navigation", () => {
         </I18nextProvider>
       </MantineProvider>,
     );
-    const link = screen.queryByRole("link", { name: "Audit logs", exact: true });
+    const link = screen.queryByRole("link", { name: /^Audit logs$/ });
     if (role === "owner") {
       expect(link?.getAttribute("href")).toBe("/settings/audit");
       expect(link?.getAttribute("aria-disabled")).not.toBe("true");
