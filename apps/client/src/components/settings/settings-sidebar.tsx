@@ -29,17 +29,13 @@ import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
 import { Feature } from "@/ee/features";
 import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";
 import {
-  prefetchApiKeyManagement,
-  prefetchApiKeys,
   prefetchBilling,
   prefetchGroups,
-  prefetchLicense,
   prefetchScimTokens,
   prefetchShares,
   prefetchSpaces,
   prefetchSsoProviders,
   prefetchWorkspaceMembers,
-  prefetchAuditLogs,
   prefetchVerifiedPages,
 } from "@/components/settings/settings-queries.tsx";
 import AppVersion from "@/components/settings/app-version.tsx";
@@ -77,7 +73,6 @@ const groupedData: DataGroup[] = [
         label: "API keys",
         icon: IconKey,
         path: "/settings/account/api-keys",
-        feature: Feature.API_KEYS,
       },
       {
         label: "Connections",
@@ -131,7 +126,6 @@ const groupedData: DataGroup[] = [
         label: "API management",
         icon: IconKey,
         path: "/settings/api-keys",
-        feature: Feature.API_KEYS,
         role: "admin",
       },
       {
@@ -147,10 +141,9 @@ const groupedData: DataGroup[] = [
         role: "admin",
       },
       {
-        label: "Audit logs & SIEM",
+        label: "Audit logs",
         icon: IconHistory,
         path: "/settings/audit",
-        feature: Feature.AUDIT_LOGS,
         role: "owner",
       },
     ],
@@ -240,11 +233,6 @@ export default function SettingsSidebar() {
             case "Billing":
               prefetchHandler = prefetchBilling;
               break;
-            case "License & Edition":
-              if (entitlements?.tier !== "free") {
-                prefetchHandler = prefetchLicense;
-              }
-              break;
             case "Security & SSO":
               prefetchHandler = () => {
                 prefetchSsoProviders();
@@ -253,15 +241,6 @@ export default function SettingsSidebar() {
               break;
             case "Public sharing":
               prefetchHandler = prefetchShares;
-              break;
-            case "API keys":
-              prefetchHandler = prefetchApiKeys;
-              break;
-            case "API management":
-              prefetchHandler = prefetchApiKeyManagement;
-              break;
-            case "Audit logs & SIEM":
-              prefetchHandler = prefetchAuditLogs;
               break;
             case "Verified pages":
               prefetchHandler = prefetchVerifiedPages;
@@ -339,22 +318,11 @@ export default function SettingsSidebar() {
         <Text fw={500}>{t("Settings")}</Text>
       </Group>
 
-      <ScrollArea w="100%" scrollbarSize={5}>{menuItems}</ScrollArea>
+      <ScrollArea w="100%" scrollbarSize={5}>
+        {menuItems}
+      </ScrollArea>
 
       {!isCloud() && <AppVersion />}
-
-      {isCloud() && (
-        <div className={classes.text}>
-          <Text
-            size="sm"
-            c="dimmed"
-            component="a"
-            href="mailto:help@docmost.com"
-          >
-            help@docmost.com
-          </Text>
-        </div>
-      )}
     </div>
   );
 }

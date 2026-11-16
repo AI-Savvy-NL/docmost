@@ -95,6 +95,7 @@ export class AuthService {
     user.lastLoginAt = new Date();
     await this.userRepo.updateLastLogin(user.id, workspaceId);
 
+    this.auditService.setActorId(user.id);
     this.auditService.log({
       event: AuditEvent.USER_LOGIN,
       resourceType: AuditResource.USER,

@@ -20,6 +20,7 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../../integrations/audit/audit.service';
+import { LicensingService } from '../../licensing/licensing.service';
 
 @Injectable()
 export class SignupService {
@@ -30,6 +31,7 @@ export class SignupService {
     private groupUserRepo: GroupUserRepo,
     @InjectKysely() private readonly db: KyselyDB,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
+    private readonly licensing: LicensingService,
   ) {}
 
   async signup(
@@ -51,6 +53,7 @@ export class SignupService {
     const user = await executeTx(
       this.db,
       async (trx) => {
+        await this.licensing.assertSeatAvailable(workspaceId, trx);
         // create user
         const workspace = await this.workspaceRepo.findById(workspaceId, {
           trx,

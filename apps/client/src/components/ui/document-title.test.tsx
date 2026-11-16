@@ -8,12 +8,12 @@ const renderTitle = (ui: React.ReactNode) =>
 
 describe("DocumentTitle", () => {
   beforeEach(() => {
-    document.head.innerHTML = "<title>Docmost</title>";
+    document.head.innerHTML = "<title>Previous page</title>";
   });
 
   it("appends the app name", () => {
     renderTitle(<DocumentTitle title="Home" />);
-    expect(document.title).toBe("Home - Docmost");
+    expect(document.title).toBe("Home - WikiSavvy");
   });
 
   it("omits the app name when asked", () => {
@@ -23,7 +23,17 @@ describe("DocumentTitle", () => {
 
   it("falls back to the app name without a title", () => {
     renderTitle(<DocumentTitle />);
-    expect(document.title).toBe("Docmost");
+    expect(document.title).toBe("WikiSavvy");
+  });
+
+  it("falls back to the app name for an empty title", () => {
+    renderTitle(<DocumentTitle title="" />);
+    expect(document.title).toBe("WikiSavvy");
+  });
+
+  it("keeps the fallback when the app name suffix is disabled", () => {
+    renderTitle(<DocumentTitle withAppName={false} />);
+    expect(document.title).toBe("WikiSavvy");
   });
 
   it("never renders an empty title", () => {

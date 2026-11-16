@@ -4,6 +4,9 @@
   "version": "0.97.0",
   "private": true,
   "scripts": {
+    "license:issue": "tsx tools/wikisavvy-license/issue.ts",
+    "license:test": "tsx --test tools/wikisavvy-license/issue.test.ts",
+    "license:test:integration": "node scripts/test-wikisavvy-licensing.mjs",
     "build": "nx run-many -t build",
     "start": "pnpm --filter ./apps/server run start:prod",
     "collab": "pnpm --filter ./apps/server run collab:prod",

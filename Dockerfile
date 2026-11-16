@@ -26,6 +26,8 @@ COPY --from=builder /app/packages/editor-ext/dist /app/packages/editor-ext/dist
 COPY --from=builder /app/packages/editor-ext/package.json /app/packages/editor-ext/package.json
 COPY --from=builder /app/packages/base-formula/dist /app/packages/base-formula/dist
 COPY --from=builder /app/packages/base-formula/package.json /app/packages/base-formula/package.json
+COPY --from=builder /app/packages/wikisavvy-license/dist /app/packages/wikisavvy-license/dist
+COPY --from=builder /app/packages/wikisavvy-license/package.json /app/packages/wikisavvy-license/package.json
 
 # Copy root package files
 COPY --from=builder /app/package.json /app/package.json

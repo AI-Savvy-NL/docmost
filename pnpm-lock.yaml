@@ -467,6 +467,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.14.3
         version: 3.14.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@wikisavvy/license':
+        specifier: workspace:*
+        version: link:../../packages/wikisavvy-license
       alfaaz:
         specifier: 1.1.0
         version: 1.1.0
@@ -765,6 +768,9 @@ importers:
       '@turbopuffer/turbopuffer':
         specifier: ^2.8.0
         version: 2.8.0
+      '@wikisavvy/license':
+        specifier: workspace:*
+        version: link:../../packages/wikisavvy-license
       ai:
         specifier: 6.0.285
         version: 6.0.285(zod@4.6.7)
@@ -1029,6 +1035,12 @@ importers:
       marked:
         specifier: 17.0.5
         version: 17.0.5
+
+  packages/wikisavvy-license:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
 packages:
 

@@ -45,6 +45,10 @@ export class EnvironmentService {
     return this.configService.get<string>('APP_SECRET');
   }
 
+  getWikisavvyLicensePublicKeysFile(): string | undefined {
+    return this.configService.get<string>('WIKISAVVY_LICENSE_PUBLIC_KEYS_FILE');
+  }
+
   getDatabaseURL(): string {
     return this.configService.get<string>('DATABASE_URL');
   }

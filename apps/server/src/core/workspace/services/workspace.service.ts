@@ -61,6 +61,7 @@ import {
 import { IntegrationConnectionRepo } from '../../integration/repos/integration-connection.repo';
 import { WsService } from '../../../ws/ws.service';
 import { CollabAccessService } from '../../../collaboration/services/collab-access.service';
+import { LicensingService } from '../../licensing/licensing.service';
 
 @Injectable()
 export class WorkspaceService {
@@ -89,6 +90,7 @@ export class WorkspaceService {
     private integrationConnectionRepo: IntegrationConnectionRepo,
     private wsService: WsService,
     private readonly collabAccessService: CollabAccessService,
+    private readonly licensing: LicensingService,
   ) {}
 
   async findById(workspaceId: string) {
@@ -1014,27 +1016,30 @@ export class WorkspaceService {
     userId: string,
     workspaceId: string,
   ): Promise<void> {
-    const user = await this.userRepo.findById(userId, workspaceId);
+    const user = await executeTx(this.db, async (trx) => {
+      await this.licensing.lockWorkspace(workspaceId, trx);
+      const user = await this.userRepo.findById(userId, workspaceId, { trx });
 
-    if (!user || user.deletedAt) {
-      throw new BadRequestException('Workspace member not found');
-    }
+      if (!user || user.deletedAt) {
+        throw new BadRequestException('Workspace member not found');
+      }
 
-    if (!user.deactivatedAt) {
-      throw new BadRequestException('User is not deactivated');
-    }
+      if (!user.deactivatedAt) {
+        throw new BadRequestException('User is not deactivated');
+      }
 
-    if (isAdminActingOnOwner(authUser.role, user.role)) {
-      throw new BadRequestException(
-        'You cannot activate a user with owner role',
+      if (isAdminActingOnOwner(authUser.role, user.role)) {
+        throw new BadRequestException(
+          'You cannot activate a user with owner role',
+        );
+      }
+
+      await this.licensing.assertSeatAvailable(workspaceId, trx);
+      await this.userRepo.updateUser(
+        { deactivatedAt: null }, userId, workspaceId, trx,
       );
-    }
-
-    await this.userRepo.updateUser(
-      { deactivatedAt: null },
-      userId,
-      workspaceId,
-    );
+      return user;
+    });
 
     this.auditService.log({
       event: AuditEvent.USER_ACTIVATED,

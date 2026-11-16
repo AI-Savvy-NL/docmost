@@ -1,7 +1,6 @@
 import {
   ActionIcon,
   Badge,
-  Box,
   Group,
   Text,
   Tooltip,
@@ -23,7 +22,7 @@ import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-to
 import SidebarToggle from "@/components/ui/sidebar-toggle-button.tsx";
 import { useTranslation } from "react-i18next";
 import useTrial from "@/ee/hooks/use-trial.tsx";
-import { isCloud } from "@/lib/config.ts";
+import { getAppName, isCloud } from "@/lib/config.ts";
 import {
   SearchControl,
   SearchMobileControl,
@@ -41,6 +40,7 @@ const links = [
 
 export function AppHeader() {
   const { t } = useTranslation();
+  const appName = getAppName();
   const [mobileOpened] = useAtom(mobileSidebarAtom);
   const toggleMobile = useToggleSidebar(mobileSidebarAtom);
 
@@ -84,22 +84,13 @@ export function AppHeader() {
             />
           </Tooltip>
 
-          <Link to="/home" className={classes.brand} aria-label="Docmost">
-            <Box hiddenFrom="sm" className={classes.brandIcon}>
-              <img
-                src="/icons/favicon-32x32.png"
-                alt="Docmost"
-                width={22}
-                height={22}
-              />
-            </Box>
+          <Link to="/home" className={classes.brand} aria-label={appName}>
             <Text
               size="lg"
               fw={600}
               style={{ userSelect: "none" }}
-              visibleFrom="sm"
             >
-              Docmost
+              {appName}
             </Text>
           </Link>
 

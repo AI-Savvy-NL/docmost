@@ -10,6 +10,7 @@ import {
 import { addDays } from 'date-fns';
 import { AuditEvent } from '../../../common/events/audit-events';
 import { WorkspaceInvitationService } from './workspace-invitation.service';
+import { ForbiddenException } from '@nestjs/common';
 
 const WORKSPACE = { id: 'ws_1', hostname: 'acme' } as any;
 
@@ -47,10 +48,11 @@ function buildService(
       if (event.level === 'query') queries.push(event.query);
     },
   });
-  const userRepo = { findById: jest.fn().mockResolvedValue({ name: 'Grace' }) };
+  const userRepo = { findById: jest.fn().mockResolvedValue({ name: 'Grace' }), insertUser: jest.fn() };
   const domainService = { getUrl: () => 'https://acme.example.com' };
   const auditService = { log: jest.fn() };
   const mailService = { sendToQueue: jest.fn() };
+  const licensing = { assertSeatAvailable: jest.fn() };
   const service = new WorkspaceInvitationService(
     userRepo as any,
     {} as any,
@@ -62,8 +64,9 @@ function buildService(
     {} as any,
     {} as any,
     auditService as any,
+    licensing as any,
   );
-  return { service, queries, auditService, mailService };
+  return { service, queries, auditService, mailService, licensing, userRepo };
 }
 
 function collectText(node: any): string {
@@ -99,6 +102,15 @@ function expectSevenDaysAhead(value: unknown) {
 }
 
 describe('WorkspaceInvitationService expiry', () => {
+  it('rejects a full-seat acceptance without creating a user or consuming the invitation', async () => {
+    const { service, licensing, userRepo, queries } = buildService(liveInvitation());
+    licensing.assertSeatAvailable.mockRejectedValue(new ForbiddenException('Licensed seat limit reached'));
+    await expect(service.acceptInvitation({
+      invitationId: 'inv_1', token: 'invite-token', name: 'Ada', password: 'test-only',
+    }, WORKSPACE)).rejects.toThrow('seat limit');
+    expect(userRepo.insertUser).not.toHaveBeenCalled();
+    expect(queries.some((q) => q.sql.startsWith('delete from'))).toBe(false);
+  });
   it('refuses to accept an expired invitation even with the right token', async () => {
     const { service } = buildService(expiredInvitation());
 

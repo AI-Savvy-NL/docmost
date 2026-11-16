@@ -1,23 +1,20 @@
 import clsx from "clsx";
 import styles from "./docs.module.css";
+import { getAppName } from "@/lib/config.ts";
+import { useTranslation } from "react-i18next";
 
 export default function DocsFooterBranding({
   className,
-  refSource = "public-space",
 }: {
   className?: string;
   refSource?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <footer className={clsx(styles.footer, className)}>
-      <a
-        className={styles.footerBranding}
-        href={`https://docmost.com?ref=${refSource}`}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Powered by Docmost
-      </a>
+      <span className={styles.footerBranding}>
+        {t("Powered by {{appName}}", { appName: getAppName() })}
+      </span>
     </footer>
   );
 }

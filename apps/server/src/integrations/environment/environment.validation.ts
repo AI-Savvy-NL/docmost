@@ -14,6 +14,10 @@ import { plainToInstance } from 'class-transformer';
 import { IsISO6391 } from '../../common/validators/is-iso6391';
 
 export class EnvironmentVariables {
+  @IsOptional()
+  @IsString()
+  WIKISAVVY_LICENSE_PUBLIC_KEYS_FILE: string;
+
   @IsNotEmpty()
   @IsUrl(
     {

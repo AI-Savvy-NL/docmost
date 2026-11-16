@@ -42,7 +42,12 @@ const Billing = lazyWithPrefetch(() => import("@/ee/billing/pages/billing.tsx"))
 const CloudLogin = lazyWithPrefetch(() => import("@/ee/pages/cloud-login.tsx"));
 const CreateWorkspace = lazyWithPrefetch(() => import("@/ee/pages/create-workspace.tsx"));
 const Security = lazyWithPrefetch(() => import("@/ee/security/pages/security.tsx"));
-const License = lazyWithPrefetch(() => import("@/ee/licence/pages/license.tsx"));
+const LicenseEdition = lazyWithPrefetch(
+  () => import("@/pages/settings/license-edition.tsx"),
+);
+const FeatureUnavailable = lazyWithPrefetch(
+  () => import("@/features/capabilities/components/feature-unavailable.tsx"),
+);
 const SharedPage = lazyWithPrefetch(() => import("@/pages/share/shared-page.tsx"));
 const PdfRenderPage = lazyWithPrefetch(() => import("@/ee/pdf-export/pdf-render-page.tsx"));
 const Shares = lazyWithPrefetch(() => import("@/pages/settings/shares/shares.tsx"));
@@ -71,25 +76,18 @@ const MfaSetupRequiredPage = lazyWithPrefetch(() =>
   })),
 );
 const SpaceTrash = lazyWithPrefetch(() => import("@/pages/space/space-trash.tsx"));
-const UserApiKeys = lazyWithPrefetch(() => import("@/ee/api-key/pages/user-api-keys"));
-const WorkspaceApiKeys = lazyWithPrefetch(
-  () => import("@/ee/api-key/pages/workspace-api-keys"),
-);
-const AiSettings = lazyWithPrefetch(() => import("@/ee/ai/pages/ai-settings.tsx"));
 const BasePage = lazyWithPrefetch(() => import("@/ee/base/pages/base-page.tsx"));
-const AuditLogs = lazyWithPrefetch(() => import("@/ee/audit/pages/audit-logs.tsx"));
+const AuditLogs = lazyWithPrefetch(
+  () => import("@/features/audit/pages/audit-log.tsx"),
+);
 const VerifiedPages = lazyWithPrefetch(
   () => import("@/ee/page-verification/pages/verified-pages.tsx"),
-);
-const Announcements = lazyWithPrefetch(
-  () => import("@/ee/announcement/pages/announcements"),
 );
 const TemplateList = lazyWithPrefetch(() => import("@/ee/template/pages/template-list"));
 const TemplateEditor = lazyWithPrefetch(
   () => import("@/ee/template/pages/template-editor"),
 );
 const FavoritesPage = lazyWithPrefetch(() => import("@/pages/favorites/favorites-page"));
-const AiChat = lazyWithPrefetch(() => import("@/ee/ai-chat/pages/ai-chat.tsx"));
 const VerifyEmail = lazyWithPrefetch(() => import("@/ee/pages/verify-email.tsx"));
 const LabelPage = lazyWithPrefetch(() => import("@/pages/label/label-page"));
 const OAuthConsent = lazyWithPrefetch(() => import("@/ee/oauth/pages/oauth-consent.tsx"));
@@ -185,8 +183,11 @@ export default function App() {
 
         <Route element={<Layout />}>
           <Route path={"/home"} element={<Home />} />
-          <Route path={"/ai"} element={<AiChat />} />
-          <Route path={"/ai/chat/:chatId"} element={<AiChat />} />
+          <Route path={"/ai"} element={<FeatureUnavailable feature="AI" />} />
+          <Route
+            path={"/ai/chat/:chatId"}
+            element={<FeatureUnavailable feature="AI" />}
+          />
           <Route path={"/spaces"} element={<SpacesPage />} />
           <Route path={"/favorites"} element={<FavoritesPage />} />
           <Route path={"/labels/:labelName"} element={<LabelPage />} />
@@ -210,32 +211,50 @@ export default function App() {
               path={"account/preferences"}
               element={<AccountPreferences />}
             />
-            <Route path={"account/api-keys"} element={<UserApiKeys />} />
+            <Route
+              path={"account/api-keys"}
+              element={<FeatureUnavailable feature="API keys" />}
+            />
             <Route
               path={"account/api-keys/authorized-apps"}
-              element={<UserApiKeys />}
+              element={<FeatureUnavailable feature="API keys" />}
             />
             <Route path={"account/connections"} element={<Connections />} />
             <Route path={"workspace"} element={<WorkspaceSettings />} />
             <Route path={"members"} element={<WorkspaceMembers />} />
-            <Route path={"api-keys"} element={<WorkspaceApiKeys />} />
+            <Route
+              path={"api-keys"}
+              element={<FeatureUnavailable feature="API management" />}
+            />
             <Route path={"groups"} element={<Groups />} />
             <Route path={"groups/:groupId"} element={<GroupInfo />} />
             <Route path={"spaces"} element={<Spaces />} />
             <Route path={"sharing"} element={<Shares />} />
             <Route path={"security"} element={<Security />} />
-            <Route path={"ai"} element={<AiSettings />} />
-            <Route path={"ai/mcp"} element={<AiSettings />} />
+            <Route
+              path={"ai"}
+              element={<FeatureUnavailable feature="AI settings" />}
+            />
+            <Route
+              path={"ai/mcp"}
+              element={<FeatureUnavailable feature="AI settings" />}
+            />
             <Route path={"audit"} element={<AuditLogs />} />
-            <Route path={"audit/siem"} element={<AuditLogs />} />
+            <Route
+              path={"audit/siem"}
+              element={<FeatureUnavailable feature="SIEM streaming" />}
+            />
             <Route
               path={"siem"}
               element={<Navigate to="/settings/audit/siem" replace />}
             />
             <Route path={"verifications"} element={<VerifiedPages />} />
             <Route path={"integrations"} element={<Integrations />} />
-            <Route path={"announcements"} element={<Announcements />} />
-            {!isCloud() && <Route path={"license"} element={<License />} />}
+            <Route
+              path={"announcements"}
+              element={<FeatureUnavailable feature="Announcements" />}
+            />
+            {!isCloud() && <Route path={"license"} element={<LicenseEdition />} />}
             {isCloud() && <Route path={"billing"} element={<Billing />} />}
           </Route>
         </Route>

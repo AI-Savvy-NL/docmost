@@ -29,9 +29,11 @@ import { LinearModule } from './integration/providers/linear/linear.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { SessionModule } from './session/session.module';
 import { ClsMiddleware } from 'nestjs-cls';
+import { WikisavvyLicensingModule } from './licensing/licensing.module';
 
 @Module({
   imports: [
+    WikisavvyLicensingModule,
     UserModule,
     AuthModule,
     WorkspaceModule,

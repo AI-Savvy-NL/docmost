@@ -49,6 +49,7 @@ import {
 } from '../workspace.util';
 import { INVITATION_EXPIRY_DAYS } from '../workspace.constants';
 import { addDays } from 'date-fns';
+import { LicensingService } from '../../licensing/licensing.service';
 
 @Injectable()
 export class WorkspaceInvitationService {
@@ -64,6 +65,7 @@ export class WorkspaceInvitationService {
     @InjectQueue(QueueName.BILLING_QUEUE) private billingQueue: Queue,
     private readonly environmentService: EnvironmentService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
+    private readonly licensing: LicensingService,
   ) {}
 
   async getInvitations(workspaceId: string, pagination: PaginationOptions) {
@@ -280,6 +282,7 @@ export class WorkspaceInvitationService {
 
     try {
       await executeTx(this.db, async (trx) => {
+        await this.licensing.assertSeatAvailable(workspace.id, trx);
         newUser = await this.userRepo.insertUser(
           {
             name: dto.name,
@@ -335,6 +338,7 @@ export class WorkspaceInvitationService {
           .execute();
       });
     } catch (err: any) {
+      if (err instanceof ForbiddenException) throw err;
       this.logger.error(`acceptInvitation - ${err}`);
       if (err.message.includes('unique constraint')) {
         throw new BadRequestException('Invitation already accepted');

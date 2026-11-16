@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@wikisavvy/license": "workspace:*",
     "@atlaskit/pragmatic-drag-and-drop": "1.8.1",
     "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "2.1.5",
     "@atlaskit/pragmatic-drag-and-drop-flourish": "2.0.15",

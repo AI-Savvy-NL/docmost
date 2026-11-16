@@ -40,6 +40,7 @@
     "@clickhouse/client": "1.18.2",
     "@docmost/base-formula": "workspace:*",
     "@docmost/pdf-inspector": "1.9.6",
+    "@wikisavvy/license": "workspace:*",
     "@fastify/cookie": "11.1.2",
     "@fastify/multipart": "10.1.8",
     "@fastify/proxy-addr": "5.1.2",
@@ -192,6 +193,7 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
+      "^@wikisavvy/license$": "<rootDir>/../../../packages/wikisavvy-license/src/index.ts",
       "^@docmost/db/(.*)$": "<rootDir>/database/$1",
       "^@docmost/transactional/(.*)$": "<rootDir>/integrations/transactional/$1",
       "^@docmost/ee/(.*)$": "<rootDir>/ee/$1",

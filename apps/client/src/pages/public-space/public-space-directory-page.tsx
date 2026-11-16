@@ -10,7 +10,7 @@ import { IconSearch } from "@tabler/icons-react";
 import { usePublicSpaceDirectoryQuery } from "@/features/public-space/queries/public-space-query.ts";
 import { useAuthenticatedUser } from "@/features/public-space/hooks/use-authenticated-user.ts";
 import { buildPublicSpaceUrl } from "@/features/page/page.utils.ts";
-import { getAvatarUrl } from "@/lib/config.ts";
+import { getAppName, getAvatarUrl } from "@/lib/config.ts";
 import { Error404 } from "@/components/ui/error-404.tsx";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
 import { MAIN_CONTENT_ID, SkipToMain } from "@/components/ui/skip-to-main.tsx";
@@ -170,9 +170,7 @@ export default function PublicSpaceDirectoryPage() {
           )}
 
           {!isLoading && total > 0 && spaces.length === 0 && (
-            <p className={styles.empty}>
-              {t("No spaces match your search.")}
-            </p>
+            <p className={styles.empty}>{t("No spaces match your search.")}</p>
           )}
 
           {spaces.length > 0 && (
@@ -218,17 +216,7 @@ export default function PublicSpaceDirectoryPage() {
       {data && (
         <footer className={styles.footer}>
           <div className={clsx(styles.container, styles.footerInner)}>
-            <div>
-              Powered by{" "}
-              <a
-                className={styles.footerBranding}
-                href="https://docmost.com?ref=public-space"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Docmost
-              </a>
-            </div>
+            <div>{t("Powered by {{appName}}", { appName: getAppName() })}</div>
           </div>
         </footer>
       )}

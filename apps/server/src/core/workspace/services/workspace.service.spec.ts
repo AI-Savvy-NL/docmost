@@ -1,5 +1,6 @@
 import { WorkspaceService } from './workspace.service';
 import { UserRole } from '../../../common/helpers/types/permission';
+import { ForbiddenException } from '@nestjs/common';
 
 const workspaceId = 'workspace-1';
 const userId = 'user-1';
@@ -31,6 +32,7 @@ function buildService() {
   });
   const userSessionRepo = { revokeByUserId: jest.fn() };
   const integrationConnectionRepo = { deleteUserConnections: jest.fn() };
+  const licensing = { lockWorkspace: jest.fn(), assertSeatAvailable: jest.fn() };
 
   const service = new WorkspaceService(
     workspaceRepo as any,
@@ -53,9 +55,12 @@ function buildService() {
     { log: jest.fn() } as any,
     userSessionRepo as any,
     integrationConnectionRepo as any,
+    { disconnectUser: jest.fn() } as any,
+    { recheckAccess: jest.fn() } as any,
+    licensing as any,
   );
 
-  return { service, trx, integrationConnectionRepo };
+  return { service, trx, integrationConnectionRepo, userRepo, licensing };
 }
 
 describe('WorkspaceService user offboarding', () => {
@@ -79,5 +84,27 @@ describe('WorkspaceService user offboarding', () => {
       userId,
       trx,
     );
+  });
+});
+
+describe('WorkspaceService licensed reactivation', () => {
+  it('does not reactivate a member when there is no seat', async () => {
+    const { service, userRepo, licensing } = buildService();
+    userRepo.findById.mockResolvedValue({
+      id: userId, role: UserRole.MEMBER, deactivatedAt: new Date(), deletedAt: null,
+    });
+    licensing.assertSeatAvailable.mockRejectedValue(new ForbiddenException('Licensed seat limit reached'));
+    await expect(service.activateUser(authUser, userId, workspaceId)).rejects.toThrow('seat limit');
+    expect(userRepo.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('checks capacity and updates membership in the same transaction', async () => {
+    const { service, userRepo, licensing, trx } = buildService();
+    userRepo.findById.mockResolvedValue({
+      id: userId, role: UserRole.MEMBER, deactivatedAt: new Date(), deletedAt: null,
+    });
+    await service.activateUser(authUser, userId, workspaceId);
+    expect(licensing.assertSeatAvailable).toHaveBeenCalledWith(workspaceId, trx);
+    expect(userRepo.updateUser).toHaveBeenCalledWith({ deactivatedAt: null }, userId, workspaceId, trx);
   });
 });
