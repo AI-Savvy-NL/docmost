@@ -528,7 +528,7 @@ export class PagePermissionRepo {
   async canUserEditPage(
     userId: string,
     pageId: string,
-    opts?: CacheOptions,
+    opts?: CacheOptions & { trx?: KyselyTransaction },
   ): Promise<{
     hasAnyRestriction: boolean;
     canAccess: boolean;
@@ -565,7 +565,7 @@ export class PagePermissionRepo {
                 SELECT gu.group_id FROM group_users gu WHERE gu.user_id = ${userId}::uuid
               )
             )
-        `.execute(this.db);
+        `.execute(dbOrTx(this.db, opts?.trx));
 
         const row = result.rows[0];
         if (!row || row.canAccess === null) {
@@ -577,7 +577,7 @@ export class PagePermissionRepo {
           canEdit: row.canAccess && (row.canEdit ?? false),
         };
       },
-      opts,
+      opts?.trx ? { skipCache: true } : opts,
     );
   }
 

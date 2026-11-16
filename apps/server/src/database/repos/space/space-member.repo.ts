@@ -230,20 +230,21 @@ export class SpaceMemberRepo {
   async getUserSpaceRoles(
     userId: string,
     spaceId: string,
-    opts?: CacheOptions,
+    opts?: CacheOptions & { trx?: KyselyTransaction },
   ): Promise<UserSpaceRole[]> {
     return withCache(
       this.cacheManager,
       CacheKey.SPACE_ROLES(userId, spaceId),
       PERMISSION_CACHE_TTL_MS,
       async () => {
-        const roles = await this.db
+        const db = dbOrTx(this.db, opts?.trx);
+        const roles = await db
           .selectFrom('spaceMembers')
           .select(['userId', 'role'])
           .where('userId', '=', userId)
           .where('spaceId', '=', spaceId)
           .unionAll(
-            this.db
+            db
               .selectFrom('spaceMembers')
               .innerJoin(
                 'groupUsers',
@@ -261,7 +262,7 @@ export class SpaceMemberRepo {
         }
         return roles;
       },
-      opts,
+      opts?.trx ? { skipCache: true } : opts,
     );
   }
 
