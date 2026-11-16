@@ -1,5 +1,10 @@
 # WikiSavvy audit foundation — local verification
 
+Production follow-up: source revision `bd8c498d` was deployed with explicit
+approval on 2026-11-16 at 17:10 UTC. See
+`2026-11-16-wikisavvy-audit-deployment.md`. The sections below retain the local
+test evidence and release-preparation history.
+
 Verified locally on 2026-11-16, with final regression runs completed at approximately
 06:50 UTC. No production configuration, data, credentials or license were used.
 This report covers the audit-foundation slice only, not all of Phase 2 or
@@ -85,8 +90,9 @@ do not accept `exact`. The earlier successful workspace build preceded that last
 test addition; Vitest did not type-check it. The test now uses an anchored role
 name regular expression. A fresh complete workspace build and all three affected
 navigation tests pass. This correction changes no runtime application behavior.
-The first image was not built or deployed; a rebuilt image still needs its own
-verification and the corrected source revision needs production confirmation.
+The first image was not built or deployed. The corrected complete image
+subsequently passed 28 checks without a server bind mount and was deployed after
+separate production confirmation; see the deployment report.
 
 The licensing PostgreSQL fixture was also rerun during release preparation:
 all five licensing integration tests passed, as did the 12 audit integration tests.
@@ -131,7 +137,7 @@ modified or registered as independently implemented.
 - Page-access rules, their cache and collaboration revocation behavior are
   unchanged. Independent permission-management/security slices and Phases 3–7
   remain unfinished.
-- No manual browser, keyboard/screen-reader/contrast audit, performance/load test,
-  dependency-CVE audit or new release-image build was performed in this slice.
-- No commit, push or production deployment. Further production changes require
-  separate exact approval.
+- No manual browser, keyboard/screen-reader/contrast audit, performance/load test
+  or dependency-CVE audit was performed. The subsequent release-image build and
+  deployment are recorded separately in the deployment report.
+- Further production changes require separate exact approval.

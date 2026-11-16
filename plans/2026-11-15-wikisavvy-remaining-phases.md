@@ -88,13 +88,16 @@ revocation, concurrent updates, stale caches/sessions, search/export/attachment/
 collaboration enforcement, sanitized audit payloads and expiry preserving security.
 Clarify management roles and audit failure behavior before changing authorization.
 
-The first audit-foundation slice is implemented and locally verified, including
-real PostgreSQL persistence and authenticated application HTTP checks. It is not
-deployed and does not complete this phase. The focused scope and evidence are in
+The first audit-foundation slice is implemented and verified, including real
+PostgreSQL persistence and authenticated application HTTP checks. It was deployed
+with explicit production approval on 2026-11-16 at 17:10 UTC, but does not complete
+this phase. The focused scope and evidence are in
 `2026-11-16-wikisavvy-phase2-audit-foundation.md` and
 `2026-11-16-wikisavvy-phase2-audit-verification.md`. Basic owner history is available
 independently of licensing; advanced audit controls, SIEM and retention remain
 unfinished. Page-permission management and other security controls are next.
+Production rollout and recovery evidence is in
+`2026-11-16-wikisavvy-audit-deployment.md`.
 Do not add blanket admin bypasses or log credentials/request bodies.
 
 ## C. Phase 3 — identity and provisioning

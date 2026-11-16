@@ -3,7 +3,10 @@
 Status: deployed at **2026-11-15 20:05 UTC**, with final production verification
 at **20:07 UTC**. The combined upgrade was explicitly approved after upgrade
 and rollback rehearsals.
-Work is uncommitted and unpushed.
+The source was subsequently committed and pushed in `1d26d865`. The later audit
+release and current recovery target are recorded in
+`2026-11-16-wikisavvy-audit-deployment.md`; the evidence below describes the Phase 1
+rollout.
 
 ## Local acceptance
 

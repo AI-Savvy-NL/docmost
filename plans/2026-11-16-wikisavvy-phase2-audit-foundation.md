@@ -94,7 +94,8 @@ Phase 2 are not completed by this audit slice.
 ## Local implementation status
 
 The foundation is implemented and has real PostgreSQL and full-application HTTP
-verification. It is not deployed, and it does not complete Phase 2 or register an
-Enterprise capability. See
+verification. It was deployed with explicit production approval on 2026-11-16 at
+17:10 UTC; see `2026-11-16-wikisavvy-audit-deployment.md`. It does not complete
+Phase 2 or register an Enterprise capability. See
 `2026-11-16-wikisavvy-phase2-audit-verification.md` for commands, evidence and
 remaining verification limitations.
