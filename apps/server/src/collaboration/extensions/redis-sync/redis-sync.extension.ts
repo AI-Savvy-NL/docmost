@@ -128,7 +128,9 @@ export class RedisSyncExtension<TCE extends CustomEvents> implements Extension {
       // to the origin would kill the client's real socket, which may be busy
       // serving other documents. Genuine protocol closes are still relayed.
       socket.onClose = (code, reason) => {
+        const entry = this.proxyConnections[socketId];
         delete this.proxyConnections[socketId];
+        entry?.clientConnection.handleClose({ code: code ?? 1000, reason: reason ?? '' });
         if (code !== ConnectionTimeout.code) {
           const msg: RSAMessageClose = {
             type: 'close',
@@ -136,7 +138,9 @@ export class RedisSyncExtension<TCE extends CustomEvents> implements Extension {
             reason,
             socketId,
           };
-          this.pub.publish(replyTo, this.pack(msg));
+          if (this.pub.status === 'ready') {
+            void this.pub.publish(replyTo, this.pack(msg)).catch(() => {});
+          }
         }
       };
       const clientConnection = this.instance.handleConnection(
@@ -363,28 +367,35 @@ export class RedisSyncExtension<TCE extends CustomEvents> implements Extension {
       return;
     }
 
-    const proxyTo = await this.getOrClaimLockThrottled(documentName);
-    if (proxyTo && proxyTo !== this.serverId) {
-      // Proxied messages bypass handleMessage, so refresh the connection's
-      // liveness fields manually or hocuspocus' message timeout would reap the
-      // real socket every `timeout` ms. connectionEstablishedAt is the
-      // reference while unauthenticated (auth for remote docs is proxied too)
-      // and is private upstream.
-      clientConnection.lastMessageReceivedAt = Date.now();
-      (clientConnection as any).connectionEstablishedAt = Date.now();
-      // another server owns the doc
-      const proxyMessage: RSAMessageProxy = {
-        serializedHTTPRequest: serializedHTTPRequest,
-        replyTo: `${this.msgChannel}:${this.serverId}`,
-        message,
-        type: 'proxy',
-      };
-      const msg = this.pack(proxyMessage);
-      this.pub.publish(`${this.msgChannel}:${proxyTo}`, msg);
-      return;
+    try {
+      if (this.pub.status !== 'ready') throw new Error('Collaboration transport unavailable');
+      const proxyTo = await this.getOrClaimLockThrottled(documentName);
+      if (proxyTo && proxyTo !== this.serverId) {
+        // Proxied messages bypass handleMessage, so refresh the connection's
+        // liveness fields manually or hocuspocus' message timeout would reap the
+        // real socket every `timeout` ms. connectionEstablishedAt is the
+        // reference while unauthenticated (auth for remote docs is proxied too)
+        // and is private upstream.
+        clientConnection.lastMessageReceivedAt = Date.now();
+        (clientConnection as any).connectionEstablishedAt = Date.now();
+        // another server owns the doc
+        const proxyMessage: RSAMessageProxy = {
+          serializedHTTPRequest: serializedHTTPRequest,
+          replyTo: `${this.msgChannel}:${this.serverId}`,
+          message,
+          type: 'proxy',
+        };
+        const msg = this.pack(proxyMessage);
+        await this.pub.publish(`${this.msgChannel}:${proxyTo}`, msg);
+        return;
+      }
+      // This server owns the document, but hocuspocus hasn't loaded it yet
+      clientConnection.handleMessage(message);
+    } catch {
+      delete this.originConnections[socketId];
+      clientConnection.handleClose({ code: 1011, reason: 'Collaboration transport unavailable' });
+      entry.socket.close(1011, 'Collaboration transport unavailable');
     }
-    // This server owns the document, but hocuspocus hasn't loaded it yet
-    clientConnection.handleMessage(message);
   }
 
   onSocketClose(socketId: string, code?: number, reason?: ArrayBuffer) {

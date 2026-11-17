@@ -152,9 +152,18 @@ describe("WikiSavvy offline licenses", () => {
     );
   });
 
-  it("never enables an unimplemented capability", () => {
-    assert.deepEqual(effectiveCapabilities(claims, "valid"), []);
-    assert.deepEqual(effectiveCapabilities(claims, "grace"), []);
+  it("enables only accepted capabilities during valid and grace periods", () => {
+    const granted = {
+      ...claims,
+      capabilities: ["wikisavvy.page-permissions", "wikisavvy.sso"],
+    };
+    assert.deepEqual(effectiveCapabilities(granted, "valid"), [
+      "wikisavvy.page-permissions",
+    ]);
+    assert.deepEqual(effectiveCapabilities(granted, "grace"), [
+      "wikisavvy.page-permissions",
+    ]);
+    assert.deepEqual(effectiveCapabilities(granted, "not-yet-valid"), []);
     assert.deepEqual(effectiveCapabilities(claims, "expired"), []);
   });
 

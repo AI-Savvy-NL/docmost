@@ -8,6 +8,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Server, Socket } from 'socket.io';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
+import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
 import { UserSessionRepo } from '@docmost/db/repos/session/user-session.repo';
@@ -17,7 +18,6 @@ import { SpaceRole } from '../common/helpers/types/permission';
 import {
   TREE_EVENTS,
   WS_SPACE_RESTRICTION_CACHE_PREFIX,
-  WS_CACHE_TTL_MS,
   getSessionRoomName,
   getSpaceRoomName,
   getUserRoomName,
@@ -36,6 +36,7 @@ export class WsService {
     private readonly baseRealtime: BaseRealtimeBridge,
     private readonly userRepo: UserRepo,
     private readonly userSessionRepo: UserSessionRepo,
+    private readonly pageRepo: PageRepo,
   ) {}
 
   setServer(server: Server): void {
@@ -78,22 +79,17 @@ export class WsService {
       client.data.userId,
       data.spaceId,
     );
-    const canPublish = userSpaceRoles?.some(
-      ({ role }) => role === SpaceRole.ADMIN || role === SpaceRole.WRITER,
-    );
-
-    if (!canPublish) {
+    const user = await this.userRepo.findById(client.data.userId, client.data.workspaceId);
+    if (!user || isUserDisabled(user) || !userSpaceRoles?.length) {
       return;
     }
 
     if (data.operation === 'refetchRootTreeNodeEvent') {
-      client.broadcast.to(room).emit('message', data);
-      return;
-    }
-
-    const hasRestrictions = await this.spaceHasRestrictions(data.spaceId);
-    if (!hasRestrictions) {
-      client.broadcast.to(room).emit('message', data);
+      if (!userSpaceRoles.some(({ role }) => role === SpaceRole.ADMIN || role === SpaceRole.WRITER)) return;
+      // Refresh is content-free; never relay arbitrary client fields to the room.
+      client.broadcast.to(room).emit('message', {
+        operation: 'refetchRootTreeNodeEvent', spaceId: data.spaceId,
+      });
       return;
     }
 
@@ -102,12 +98,12 @@ export class WsService {
       return;
     }
 
-    const isRestricted =
-      await this.pagePermissionRepo.hasRestrictedAncestor(pageId);
-    if (!isRestricted) {
-      client.broadcast.to(room).emit('message', data);
-      return;
-    }
+    const page = await this.pageRepo.findById(pageId);
+    if (!page || page.spaceId !== data.spaceId || page.workspaceId !== user.workspaceId) return;
+    const access = await this.pagePermissionRepo.canUserEditPage(user.id, pageId);
+    const canPublish = access.hasAnyRestriction ? access.canAccess && access.canEdit :
+      userSpaceRoles.some(({ role }) => role === SpaceRole.ADMIN || role === SpaceRole.WRITER);
+    if (!canPublish) return;
 
     await this.broadcastToAuthorizedUsers(room, client.id, pageId, data);
   }
@@ -132,25 +128,14 @@ export class WsService {
   ): Promise<void> {
     const room = getSpaceRoomName(spaceId);
 
-    const hasRestrictions = await this.spaceHasRestrictions(spaceId);
-    if (!hasRestrictions) {
-      this.server.to(room).emit('message', data);
-      return;
-    }
-
-    const isRestricted =
-      await this.pagePermissionRepo.hasRestrictedAncestor(pageId);
-    if (!isRestricted) {
-      this.server.to(room).emit('message', data);
-      return;
-    }
-
     await this.broadcastToAuthorizedUsers(room, null, pageId, data);
   }
 
-  async emitToUsers(userIds: string[], data: any): Promise<void> {
+  async emitToUsers(userIds: string[], data: any, pageId?: string): Promise<void> {
     if (userIds.length === 0) return;
-    const rooms = userIds.map((id) => getUserRoomName(id));
+    const recipients = pageId ? await this.pagePermissionRepo.getUserIdsWithPageAccess(pageId, userIds) : userIds;
+    if (!recipients.length) return;
+    const rooms = recipients.map((id) => getUserRoomName(id));
     this.server.to(rooms).emit('message', data);
   }
 
@@ -275,22 +260,6 @@ export class WsService {
         }
       }
     }
-  }
-
-  private async spaceHasRestrictions(spaceId: string): Promise<boolean> {
-    const cacheKey = `${WS_SPACE_RESTRICTION_CACHE_PREFIX}${spaceId}`;
-
-    const cached = await this.cacheManager.get<boolean>(cacheKey);
-    if (cached !== undefined && cached !== null) {
-      return cached;
-    }
-
-    const hasRestrictions =
-      await this.pagePermissionRepo.hasRestrictedPagesInSpace(spaceId);
-
-    await this.cacheManager.set(cacheKey, hasRestrictions, WS_CACHE_TTL_MS);
-
-    return hasRestrictions;
   }
 
   private extractPageId(data: any): string | null {

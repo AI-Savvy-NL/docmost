@@ -577,7 +577,8 @@ export class PagePermissionRepo {
           canEdit: row.canAccess && (row.canEdit ?? false),
         };
       },
-      opts?.trx ? { skipCache: true } : opts,
+      // Revocation must not depend on cache expiry or successful invalidation.
+      { skipCache: true },
     );
   }
 
@@ -1191,8 +1192,8 @@ export class PagePermissionRepo {
 
   /**
    * Given a pageId and a set of candidate userIds, return the subset who can
-   * access the page (have permission on ALL restricted ancestors).
-   * Returns all userIds if the page has no restricted ancestors.
+   * access the page: active account, current space membership and permission
+   * on ALL restricted ancestors. Room membership alone is not authorization.
    */
   async getUserIdsWithPageAccess(
     pageId: string,
@@ -1212,7 +1213,19 @@ export class PagePermissionRepo {
       )
       SELECT cu.user_id AS "userId"
       FROM unnest(${userIds}::uuid[]) AS cu(user_id)
-      WHERE NOT EXISTS (
+      JOIN pages target ON target.id = ${pageId}::uuid
+      JOIN spaces s ON s.id = target.space_id AND s.workspace_id = target.workspace_id
+      JOIN users u ON u.id = cu.user_id AND u.workspace_id = target.workspace_id
+      WHERE u.deleted_at IS NULL AND u.deactivated_at IS NULL AND s.deleted_at IS NULL
+      AND EXISTS (
+        SELECT 1 FROM space_members sm
+        WHERE sm.space_id = target.space_id AND sm.role IN ('reader', 'writer', 'admin')
+          AND (sm.user_id = cu.user_id OR sm.group_id IN (
+            SELECT gu.group_id FROM group_users gu JOIN groups g ON g.id = gu.group_id
+            WHERE gu.user_id = cu.user_id AND g.workspace_id = target.workspace_id
+          ))
+      )
+      AND NOT EXISTS (
         SELECT 1
         FROM ancestors a
         JOIN page_access pa ON pa.page_id = a.ancestor_id

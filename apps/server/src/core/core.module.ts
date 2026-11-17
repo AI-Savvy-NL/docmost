@@ -30,10 +30,12 @@ import { FavoriteModule } from './favorite/favorite.module';
 import { SessionModule } from './session/session.module';
 import { ClsMiddleware } from 'nestjs-cls';
 import { WikisavvyLicensingModule } from './licensing/licensing.module';
+import { WikisavvyPagePermissionModule } from './page-permissions/page-permission.module';
 
 @Module({
   imports: [
     WikisavvyLicensingModule,
+    WikisavvyPagePermissionModule,
     UserModule,
     AuthModule,
     WorkspaceModule,

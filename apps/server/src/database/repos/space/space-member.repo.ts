@@ -262,7 +262,8 @@ export class SpaceMemberRepo {
         }
         return roles;
       },
-      opts?.trx ? { skipCache: true } : opts,
+      // Membership revocation must take effect on the next authorization check.
+      { skipCache: true },
     );
   }
 

@@ -42,6 +42,6 @@ export class WsTreeService {
           children: [],
         },
       },
-    });
+    }, page.id);
   }
 }

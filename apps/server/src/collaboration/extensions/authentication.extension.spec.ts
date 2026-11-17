@@ -56,6 +56,8 @@ async function makeExtension(
     spaceMemberRepo as any,
     pagePermissionRepo as any,
     { getOrThrow: () => ({ duplicate: () => subscriber }) } as any,
+    { findById: jest.fn(async () => ({ workspaceId: 'ws_1' })) } as any,
+    { transaction: () => ({ setIsolationLevel: () => ({ execute: (callback) => callback({ isTransaction: true }) }) }) } as any,
   );
   const instance = {
     documents: new Map(
@@ -116,7 +118,7 @@ describe('AuthenticationExtension access recheck', () => {
     expect(spaceMemberRepo.getUserSpaceRoles).toHaveBeenCalledWith(
       'user_1',
       'space_1',
-      { skipCache: true },
+      expect.objectContaining({ skipCache: true, trx: expect.anything() }),
     );
   });
 
@@ -155,7 +157,7 @@ describe('AuthenticationExtension access recheck', () => {
 
     await extension.recheckAccess({ userIds: ['user_broken', 'user_removed'] });
 
-    expect(broken.close).not.toHaveBeenCalled();
+    expect(broken.close).toHaveBeenCalledWith(Forbidden);
     expect(removed.close).toHaveBeenCalledWith(Forbidden);
   });
 });
@@ -174,12 +176,12 @@ describe('AuthenticationExtension onAuthenticate', () => {
     expect(spaceMemberRepo.getUserSpaceRoles).toHaveBeenCalledWith(
       'user_reader',
       'space_1',
-      { skipCache: true },
+      expect.objectContaining({ skipCache: true, trx: expect.anything() }),
     );
     expect(pagePermissionRepo.canUserEditPage).toHaveBeenCalledWith(
       'user_reader',
       'page_1',
-      { skipCache: true },
+      expect.objectContaining({ skipCache: true, trx: expect.anything() }),
     );
   });
 

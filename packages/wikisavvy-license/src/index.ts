@@ -49,7 +49,9 @@ export const CAPABILITY_IDS: readonly string[] = Object.freeze(
 export const GRACE_DAYS = 30;
 export const MAX_LICENSE_LENGTH = 32768;
 // A signed grant is not an implementation; register capabilities only after their independent backend and UI pass acceptance tests.
-export const IMPLEMENTED_CAPABILITIES: readonly string[] = Object.freeze([]);
+export const IMPLEMENTED_CAPABILITIES: readonly string[] = Object.freeze([
+  "wikisavvy.page-permissions",
+]);
 const kidPattern = /^[a-zA-Z0-9_-]{1,64}$/;
 const encodedPattern = /^[a-zA-Z0-9_-]+$/;
 const claimsSchema = z

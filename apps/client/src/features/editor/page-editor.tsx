@@ -90,6 +90,7 @@ import { MicrosoftFullscreenModal } from "@/features/editor/components/microsoft
 import { getInstalledIntegrations } from "@/features/integration/services/integration-service";
 import { TransclusionLookupProvider } from "@/features/editor/components/transclusion/transclusion-lookup-context";
 import { useTranslation } from "react-i18next";
+import { applyPermissionNotice } from "@/features/page-permissions/apply-permission-notice";
 import {
   acquireCollabSocket,
   getCollabSocket,
@@ -126,28 +127,7 @@ export default function PageEditor({
     try {
       const message = JSON.parse(payload);
       if (message?.type === "page.permissions") {
-        // applied locally, a refetch can still read the old access from the server cache
-        for (const key of [slugId, pageId]) {
-          queryClient.setQueryData<IPage>(
-            ["pages", key],
-            (page) =>
-              page && {
-                ...page,
-                permissions: { ...page.permissions, canEdit: false },
-              },
-          );
-        }
-        if (message.access === "none") {
-          queryClient
-            .getQueryCache()
-            .find({ queryKey: ["pages", slugId], exact: true })
-            ?.setState({
-              status: "error",
-              fetchStatus: "idle",
-              data: undefined,
-              error: Object.assign(new Error("Forbidden"), { status: 403 }),
-            });
-        }
+        applyPermissionNotice(queryClient, [slugId, pageId], message.access);
         return;
       }
       if (message?.type !== "page.updated" || !message.updatedAt) return;

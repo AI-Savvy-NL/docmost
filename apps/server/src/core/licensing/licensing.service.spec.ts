@@ -84,7 +84,7 @@ describe('WikiSavvy licensing service', () => {
     expect(repository.save.mock.calls[0][1] === envelope).toBe(false);
     expect(JSON.stringify(result).includes(envelope)).toBe(false);
     expect(result.edition).toBe('enterprise');
-    expect(result.features).toEqual([]);
+    expect(result.features).toEqual(['wikisavvy.page-permissions']);
     expect(result.license.licenseId).toBe(claims.licenseId);
   });
 

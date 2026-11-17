@@ -4,6 +4,8 @@ import {
   Hocuspocus,
   onAuthenticatePayload,
   onConfigurePayload,
+  onLoadDocumentPayload,
+  beforeHandleMessagePayload,
 } from '@hocuspocus/server';
 import { Forbidden } from '@hocuspocus/common';
 import {
@@ -18,6 +20,7 @@ import { TokenService } from '../../core/auth/services/token.service';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
+import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { findHighestUserSpaceRole } from '@docmost/db/repos/space/utils';
 import { Page, User } from '@docmost/db/types/entity.types';
@@ -27,14 +30,17 @@ import { getPageId } from '../collaboration.util';
 import { COLLAB_ACCESS_RECHECK_CHANNEL } from '../constants';
 import { CollabAccessRecheck } from '../services/collab-access.service';
 import { JwtCollabPayload, JwtType } from '../../core/auth/dto/jwt-payload';
+import { InjectKysely } from 'nestjs-kysely';
+import type { KyselyDB, KyselyTransaction } from '../../database/types/kysely.types';
 
-type CollabAccess = 'none' | 'read' | 'write';
+import { CollabConnectionGuard, type CollabAccess } from './collab-connection-guard';
 
 @Injectable()
 export class AuthenticationExtension implements Extension {
   private readonly logger = new Logger(AuthenticationExtension.name);
   private instance: Hocuspocus;
   private subscriber: Redis;
+  private readonly guards = new WeakMap<Connection, CollabConnectionGuard>();
 
   constructor(
     private tokenService: TokenService,
@@ -43,7 +49,32 @@ export class AuthenticationExtension implements Extension {
     private readonly spaceMemberRepo: SpaceMemberRepo,
     private readonly pagePermissionRepo: PagePermissionRepo,
     private readonly redisService: RedisService,
+    private readonly spaceRepo: SpaceRepo,
+    @InjectKysely() private readonly db: KyselyDB,
   ) {}
+
+  async onLoadDocument({ document, documentName }: onLoadDocumentPayload) {
+    const addConnection = document.addConnection.bind(document);
+    // Registration precedes initial awareness; the connected hook is too late.
+    document.addConnection = (connection) => {
+      const guard = new CollabConnectionGuard(connection, () =>
+        this.connectionAccess(connection, getPageId(documentName)),
+      );
+      this.guards.set(connection, guard);
+      return addConnection(connection);
+    };
+  }
+
+  async beforeHandleMessage({ connection }: beforeHandleMessagePayload) {
+    const guard = this.guards.get(connection);
+    if (!guard) {
+      connection.close(Forbidden);
+      throw Forbidden;
+    }
+    const access = await guard.authorize();
+    // Outbound checks may restrict, but only this message's fresh check may enable writes.
+    if (access === 'write') connection.readOnly = false;
+  }
 
   async onConfigure({ instance }: onConfigurePayload) {
     this.instance = instance;
@@ -85,10 +116,7 @@ export class AuthenticationExtension implements Extension {
     const userId = jwtPayload.sub;
     const workspaceId = jwtPayload.workspaceId;
 
-    const [user, page] = await Promise.all([
-      this.userRepo.findById(userId, workspaceId),
-      this.pageRepo.findById(pageId),
-    ]);
+    const { user, page, access } = await this.accessSnapshot(userId, workspaceId, pageId);
 
     if (!user || isUserDisabled(user)) {
       throw new UnauthorizedException();
@@ -98,8 +126,6 @@ export class AuthenticationExtension implements Extension {
       this.logger.debug(`Page not found: ${pageId}`);
       throw new NotFoundException('Page not found');
     }
-
-    const access = await this.getAccess(user, page);
 
     if (access === 'none') {
       this.logger.warn(`User ${user.id} not authorized to access page: ${pageId}`);
@@ -145,11 +171,9 @@ export class AuthenticationExtension implements Extension {
       for (const connection of connections) {
         try {
           await this.recheckConnection(connection, pageId);
-        } catch (err) {
-          this.logger.error(
-            { err },
-            `Failed to recheck collab access on ${document.name}`,
-          );
+        } catch {
+          connection.close(Forbidden);
+          this.logger.warn('Collaboration authorization failed; connection closed');
         }
       }
     }
@@ -159,49 +183,62 @@ export class AuthenticationExtension implements Extension {
     connection: Connection,
     pageId: string,
   ): Promise<void> {
-    const { id, workspaceId } = connection.context.user;
-    const [user, page] = await Promise.all([
-      this.userRepo.findById(id, workspaceId),
-      this.pageRepo.findById(pageId),
-    ]);
-
-    let access: CollabAccess = 'none';
-    if (user && !isUserDisabled(user) && page) {
-      access = await this.getAccess(user, page);
+    const guard = this.guards.get(connection);
+    if (guard) {
+      await guard.authorize();
+      return;
     }
-
+    const access = await this.connectionAccess(connection, pageId);
     if (access === 'write' || (access === 'read' && connection.readOnly)) {
       return;
     }
-
-    connection.sendStateless(
-      JSON.stringify({ type: 'page.permissions', access }),
-    );
     connection.readOnly = true;
-    if (access === 'none') {
-      connection.close(Forbidden);
-    }
+    connection.sendStateless(JSON.stringify({ type: 'page.permissions', access }));
+    if (access === 'none') connection.close(Forbidden);
+  }
+
+  private async connectionAccess(connection: Connection, pageId: string): Promise<CollabAccess> {
+    const { id, workspaceId } = connection.context?.user ?? {};
+    if (!id || !workspaceId) return 'none';
+    return (await this.accessSnapshot(id, workspaceId, pageId)).access;
+  }
+
+  private accessSnapshot(id: string, workspaceId: string, pageId: string) {
+    return this.db.transaction().setIsolationLevel('repeatable read').execute(async (trx) => {
+      const [user, page] = await Promise.all([
+        this.userRepo.findById(id, workspaceId, { trx }),
+        this.pageRepo.findById(pageId, { trx }),
+      ]);
+      let access: CollabAccess = 'none';
+      if (user && !isUserDisabled(user) && page?.workspaceId === workspaceId) {
+        access = await this.getAccess(user, page, trx);
+      }
+      return { user, page, access };
+    });
   }
 
   // a connection outlives this check, so it must not see a stale cached allow
-  private async getAccess(user: User, page: Page): Promise<CollabAccess> {
-    const [spaceRoles, { hasAnyRestriction, canAccess, canEdit }] =
+  private async getAccess(user: User, page: Page, trx: KyselyTransaction): Promise<CollabAccess> {
+    const [space, spaceRoles, { hasAnyRestriction, canAccess, canEdit }] =
       await Promise.all([
+        this.spaceRepo.findById(page.spaceId, user.workspaceId, { trx }),
         this.spaceMemberRepo.getUserSpaceRoles(user.id, page.spaceId, {
           skipCache: true,
+          trx,
         }),
         this.pagePermissionRepo.canUserEditPage(user.id, page.id, {
           skipCache: true,
+          trx,
         }),
       ]);
 
     const userSpaceRole = findHighestUserSpaceRole(spaceRoles);
-    if (!userSpaceRole) return 'none';
+    if (!space || space.deletedAt || !userSpaceRole) return 'none';
     if (hasAnyRestriction && !canAccess) return 'none';
 
     const canWrite = hasAnyRestriction
       ? canEdit
       : userSpaceRole !== SpaceRole.READER;
-    return canWrite && !page.deletedAt ? 'write' : 'read';
+    return canWrite && !page.deletedAt && !space.archivedAt ? 'write' : 'read';
   }
 }

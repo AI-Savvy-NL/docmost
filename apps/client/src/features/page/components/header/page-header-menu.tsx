@@ -8,6 +8,7 @@ import {
   IconFileExport,
   IconHistory,
   IconLink,
+  IconLock,
   IconList,
   IconMarkdown,
   IconMessage,
@@ -66,6 +67,7 @@ import {
 } from "@/features/page/queries/watcher-query";
 import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
 import { usePrintBlockReason } from "@/ee/security/hooks/use-disable-print.ts";
+import PagePermissionsModal from "@/features/page-permissions/page-permissions-modal";
 
 interface PageHeaderMenuProps {
   readOnly?: boolean;
@@ -188,6 +190,10 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
     { open: openPresentationModal, close: closePresentationModal },
   ] = useDisclosure(false);
   const [pageEditor] = useAtom(pageEditorAtom);
+  const [permissionsOpened, { open: openPermissions, close: closePermissions }] = useDisclosure(false);
+  useEffect(() => {
+    if (readOnly) closePermissions();
+  }, [readOnly, closePermissions]);
   const pageUpdatedAt = useTimeAgo(page?.updatedAt);
   const favoriteIds = useFavoriteIds("page", page?.spaceId);
   const addFavoriteMutation = useAddFavoriteMutation();
@@ -372,6 +378,12 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           <Menu.Divider />
 
           {!readOnly && (
+            <Menu.Item leftSection={<IconLock size={16} />} onClick={openPermissions}>
+              {t("Page permissions")}
+            </Menu.Item>
+          )}
+
+          {!readOnly && (
             <Menu.Item
               leftSection={<IconArrowRight size={16} />}
               onClick={openMovePageModal}
@@ -468,6 +480,8 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
         open={exportOpened}
         onClose={closeExportModal}
       />
+
+      <PagePermissionsModal pageId={page.id} opened={permissionsOpened && !readOnly} onClose={closePermissions} />
 
       <MovePageModal
         pageId={page.id}

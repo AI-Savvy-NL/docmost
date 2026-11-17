@@ -95,13 +95,19 @@ export class WikisavvyPagePermissionPolicy {
     if (existing) return page;
 
     await this.licensing.lockWorkspace(workspaceId, trx);
-    const license = await this.licensing.status(workspaceId, trx);
-    if (
-      !['valid', 'grace'].includes(license.status) ||
-      !license.features.includes('wikisavvy.page-permissions')
-    ) {
+    if (!await this.canCreateRestriction(workspaceId, trx)) {
       throw new ForbiddenException('A valid WikiSavvy license is required to restrict another page');
     }
     return page;
+  }
+
+  async canCreateRestriction(workspaceId: string, trx: KyselyTransaction): Promise<boolean> {
+    try {
+      const license = await this.licensing.status(workspaceId, trx);
+      return ['valid', 'grace'].includes(license.status) &&
+        license.features.includes('wikisavvy.page-permissions');
+    } catch {
+      return false;
+    }
   }
 }
