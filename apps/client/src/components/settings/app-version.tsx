@@ -12,14 +12,21 @@ export default function AppVersion() {
 
   return (
     <div className={classes.text}>
-      <Text size="sm" c="dimmed">
-        {appVersion?.currentVersion
-          ? t("{{appName}} — base v{{version}}", {
-              appName,
-              version: appVersion.currentVersion,
-            })
-          : appName}
+      <Text size="sm" c="dimmed" title={appVersion?.buildRevision ?? undefined}>
+        {appVersion?.releaseVersion
+          ? `${appName} ${appVersion.releaseVersion}`
+          : appVersion?.currentVersion
+            ? t("{{appName}} — base v{{version}}", {
+                appName,
+                version: appVersion.currentVersion,
+              })
+            : appName}
       </Text>
+      {appVersion?.releaseVersion && appVersion.currentVersion && (
+        <Text size="xs" c="dimmed">
+          {t("Base v{{version}}", { version: appVersion.currentVersion })}
+        </Text>
+      )}
     </div>
   );
 }

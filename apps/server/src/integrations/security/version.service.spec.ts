@@ -75,7 +75,8 @@ describe('VersionService.getVersion', () => {
     const refused = await service.getVersion();
     const next = await service.getVersion();
 
-    expect(refused).toBeUndefined();
+    expect(refused.currentVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(refused.latestVersion).toBe(0);
     expect(next.latestVersion).toBe('9.9.9');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -88,5 +89,50 @@ describe('VersionService.getVersion', () => {
 
     expect(version.currentVersion).toMatch(/^\d+\.\d+\.\d+/);
     expect(version.latestVersion).toBe(0);
+  });
+
+  describe('fork release identity', () => {
+    const originalRevision = process.env.WIKISAVVY_BUILD_REVISION;
+    const originalDate = process.env.WIKISAVVY_BUILD_DATE;
+
+    afterEach(() => {
+      for (const [name, value] of [
+        ['WIKISAVVY_BUILD_REVISION', originalRevision],
+        ['WIKISAVVY_BUILD_DATE', originalDate],
+      ]) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    });
+
+    it('reports the baked release independently of upstream availability', async () => {
+      process.env.WIKISAVVY_BUILD_REVISION =
+        '7b93b5baad9ede5a15f5be5d78372dd0c0f0b027';
+      process.env.WIKISAVVY_BUILD_DATE = '2026-11-17';
+      fetchMock.mockImplementation(
+        async () => new Response('', { status: 403 }),
+      );
+      const result = await makeService().getVersion();
+      expect(result.releaseVersion).toBe('2026.11.17-7b93b5ba');
+      expect(result.buildRevision).toBe(process.env.WIKISAVVY_BUILD_REVISION);
+      expect(result.currentVersion).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    it.each([
+      ['', '2026-11-17'],
+      ['invalid', '2026-11-17'],
+      ['7b93b5baad9ede5a15f5be5d78372dd0c0f0b027', '2026-02-30'],
+      ['7b93b5baad9ede5a15f5be5d78372dd0c0f0b027', 'not-a-date'],
+    ])(
+      'does not invent a release from invalid metadata',
+      async (revision, date) => {
+        process.env.WIKISAVVY_BUILD_REVISION = revision;
+        process.env.WIKISAVVY_BUILD_DATE = date;
+        fetchMock.mockRejectedValue(new Error('offline'));
+        const result = await makeService().getVersion();
+        expect(result.releaseVersion).toBeNull();
+        expect(result.buildRevision).toBeNull();
+      },
+    );
   });
 });

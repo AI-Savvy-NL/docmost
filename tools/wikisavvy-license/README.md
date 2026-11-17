@@ -1,7 +1,7 @@
 # WikiSavvy offline licenses
 
-Phase 1 adds licensing infrastructure, not Enterprise feature implementations.
-The implemented-capability registry is empty. A valid Enterprise license does not
+The implemented-capability registry currently contains only
+`wikisavvy.page-permissions`. A valid Enterprise license does not
 unlock Docmost's separately licensed code or change its license terms.
 
 ## Issuing a license
@@ -20,7 +20,10 @@ pnpm license:issue --claims claims.json --kid production-1 --out customer.licens
 `issuedAt`, `notBefore`, `expiresAt` timestamps. Copy the workspace ID from the
 License & Edition page. Dates must satisfy `issuedAt <= notBefore < expiresAt`.
 Capability names are allowlisted in `packages/wikisavvy-license/src/index.ts`.
-For Phase 1, use an empty capability list; other known grants remain unavailable.
+Grant `wikisavvy.page-permissions` to enable creation of new direct page
+restrictions. Maintenance/removal and enforcement of existing restrictions do not
+depend on license validity. Other known grants remain unavailable until their
+independent implementations pass acceptance.
 
 The issuer writes an exclusive mode-0600 output file and never prints the key
 or envelope. To renew, issue a new license file; an existing file is not overwritten.

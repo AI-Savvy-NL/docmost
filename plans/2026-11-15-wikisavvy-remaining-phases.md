@@ -95,12 +95,23 @@ this phase. The focused scope and evidence are in
 `2026-11-16-wikisavvy-phase2-audit-foundation.md` and
 `2026-11-16-wikisavvy-phase2-audit-verification.md`. Basic owner history is available
 independently of licensing; advanced audit controls, SIEM and retention remain
-unfinished. Page-permission management and other security controls are next.
+unfinished. Page-permission management subsequently shipped on 2026-11-17;
+this does not complete the remaining security controls.
 Production rollout and recovery evidence is in
 `2026-11-16-wikisavvy-audit-deployment.md`.
 Do not add blanket admin bypasses or log credentials/request bodies.
 
 ## C. Phase 3 — identity and provisioning
+
+On 2026-11-17 the user prioritized security and SSO before content, structured
+data, AI or other feature phases, choosing the existing `auth.codesavvy.io`
+Authentik instance and independent OIDC first. Start with session/login,
+revocation, recovery and access-boundary security checks. Review explicit account
+linking, emergency login and provider-failure behavior before SSO implementation
+or enforcement. Do not silently provision accounts or link by email alone.
+The scoped local/license/version plan is
+`2026-11-17-wikisavvy-license-version-security.md`. No production identity-provider
+write or SSO enforcement is authorized by this priority decision.
 
 Independently implement the agreed SSO providers, MFA, provisioning, API keys and
 OAuth. Specify account linking, recovery, break-glass behavior, deprovisioning and

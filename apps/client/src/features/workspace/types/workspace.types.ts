@@ -130,6 +130,8 @@ export interface IPublicWorkspace {
 
 export interface IVersion {
   currentVersion: string;
+  releaseVersion?: string | null;
+  buildRevision?: string | null;
   latestVersion: string;
   releaseUrl: string;
 }

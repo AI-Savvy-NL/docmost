@@ -98,4 +98,18 @@ describe("AppVersion", () => {
     expect(screen.getByText("WikiSavvy")).toBeTruthy();
     expect(screen.queryByText(/base v/)).toBeNull();
   });
+
+  it("shows the fork release separately from the upstream base", () => {
+    useAppVersion.mockReturnValue({
+      data: {
+        currentVersion: "0.97.0",
+        releaseVersion: "2026.11.17-7b93b5ba",
+        buildRevision: "7b93b5baad9ede5a15f5be5d78372dd0c0f0b027",
+      },
+    });
+    renderVersion();
+    expect(screen.getByText("WikiSavvy 2026.11.17-7b93b5ba")).toBeTruthy();
+    expect(screen.getByText("Base v0.97.0")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
 });
