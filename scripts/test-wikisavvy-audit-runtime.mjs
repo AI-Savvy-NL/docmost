@@ -3,8 +3,15 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
+import {
+  APPLICATION_STARTUP_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+  runtimeOptions,
+  safeFixtureError,
+  waitForReady as waitFor,
+} from "./wikisavvy-runtime-fixture.mjs";
 
+const runtime = runtimeOptions(process.argv.slice(2));
 const require = createRequire(resolve("apps/server/package.json"));
 const postgres = require("postgres");
 const jwt = require("jsonwebtoken");
@@ -20,12 +27,19 @@ const appSecret = randomBytes(32).toString("hex");
 const loginPassword = randomBytes(24).toString("hex");
 const dbImage = "postgres@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc";
 const redisImage = "redis@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe";
-const runtimeImage = "sha256:89564de1640a94638c706dc546e4a343f71f563eefe3c21e2f5824b14f44ae9e";
+const runtimeImage = runtime.image;
 let sql;
 let stage = "fixture startup";
 let checks = 0;
+let startupStartedAt;
+let startupDurationMs;
+let lastRequest;
 function docker(args, env = process.env) {
   return spawnSync("docker", args, { env, encoding: "utf8", timeout: 30000 });
+}
+function checkLocalImage() {
+  assert.equal(docker(["image", "inspect", runtimeImage]).status, 0,
+    "Selected runtime image is not available locally");
 }
 function start(name, args, env) {
   const result = docker(["run", "--rm", "-d", "--name", name, "--label", "io.wikisavvy.test=audit-runtime", ...args], env);
@@ -37,19 +51,13 @@ function address(port) {
   assert.match(result, /^127\.0\.0\.1:\d+$/, "Unexpected fixture bind address");
   return result;
 }
-async function waitFor(callback) {
-  for (let attempt = 0; attempt < 90; attempt++) {
-    if (await callback()) return;
-    await delay(500);
-  }
-  throw new Error("Local fixture did not become ready");
-}
 function check(condition) {
   assert.ok(condition, "Runtime assertion failed");
   checks++;
 }
 
 try {
+  checkLocalImage();
   start(names.db, [
     "-p", "127.0.0.1::5432", "-p", "127.0.0.1::3000",
     "--tmpfs", "/var/lib/postgresql:rw,size=512m",
@@ -61,28 +69,35 @@ try {
   const databaseUrl = `postgres://postgres:${dbPassword}@127.0.0.1:5432/wikisavvy_audit_runtime_test`;
   start(names.app, [
     "--network", `container:${names.db}`,
-    "--mount", `type=bind,src=${resolve("apps/server/dist")},dst=/app/apps/server/dist,readonly`,
+    ...(runtime.bindCompiledServer
+      ? ["--mount", `type=bind,src=${resolve("apps/server/dist")},dst=/app/apps/server/dist,readonly`]
+      : []),
     "--tmpfs", "/app/data/storage:rw,uid=1000,gid=1000,size=64m",
     "-e", "DATABASE_URL", "-e", "APP_SECRET",
     "-e", "REDIS_URL=redis://127.0.0.1:6379",
     "-e", "APP_URL=http://localhost:3000", "-e", "DISABLE_TELEMETRY=true",
     "-e", "CLOUD=false", "-e", "NODE_ENV=production", runtimeImage,
   ], { ...process.env, DATABASE_URL: databaseUrl, APP_SECRET: appSecret });
+  startupStartedAt = performance.now();
   const origin = `http://${address(3000)}`;
   async function request(path, body, cookie) {
-    return fetch(`${origin}/api/${path}`, {
+    lastRequest = { path };
+    const response = await fetch(`${origin}/api/${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
+    lastRequest.status = response.status;
+    return response;
   }
   stage = "application bootstrap and migrations";
   await waitFor(async () => {
     try {
       return (await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(2000) })).ok;
     } catch { return false; }
-  });
+  }, { timeoutMs: APPLICATION_STARTUP_TIMEOUT_MS });
+  startupDurationMs = Math.round(performance.now() - startupStartedAt);
   sql = postgres(`postgres://postgres:${dbPassword}@${address(5432)}/wikisavvy_audit_runtime_test`, { onnotice: () => {} });
   check((await sql`select name from kysely_migration`).length === 62);
   stage = "real setup and login";
@@ -152,9 +167,19 @@ try {
   stage = "session revocation";
   await sql`update user_sessions set revoked_at = now() where user_id = ${owner.id}`;
   check((await request("wikisavvy/audit/history", {}, ownerCookie)).status === 401);
-  console.log(`Audit runtime: ${checks} checks passed; current compiled server, real sessions, 62 migrations, isolated PostgreSQL/Redis.`);
-} catch {
+  const mode = runtime.bindCompiledServer ? "current compiled server" : "complete release image";
+  console.log(`Audit runtime: ${checks} checks passed; ${mode}, real sessions, 62 migrations, isolated PostgreSQL/Redis.`);
+  console.log(JSON.stringify({
+    passed: true, checks, image: runtimeImage,
+    serverBindMount: runtime.bindCompiledServer, startupDurationMs,
+  }));
+} catch (error) {
   console.error(`Audit runtime failed during ${stage}; raw credential-bearing diagnostics withheld.`);
+  console.error(JSON.stringify({
+    stage, checksCompleted: checks, error: safeFixtureError(error), lastRequest,
+    startupElapsedMs: startupStartedAt === undefined ? undefined
+      : startupDurationMs ?? Math.round(performance.now() - startupStartedAt),
+  }));
   if (created.includes(names.app)) {
     const result = docker(["logs", names.app]);
     const logs = result.stdout + result.stderr;
