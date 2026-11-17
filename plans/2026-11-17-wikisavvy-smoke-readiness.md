@@ -113,7 +113,10 @@ environment failure. Any recurrence will retain its error type, allowlisted
 transport code, fixed request path/status, assertion count and startup duration,
 without recording credentials, response bodies or raw logs.
 
-Changes remain local and uncommitted. No commit, push or deployment was performed
-under this fix approval. A production rollout still needs a renewed explicit
-`prd` window, fresh preflight and restore/off-host-verified backup; the old guarded
-rollout must not consume expired approval or historical state.
+At local-fix completion, changes were uncommitted and no commit, push or deployment
+was performed under that fix approval. The user subsequently requested release:
+the fix was committed/pushed as `91f6cc88`, then deployed at 13:46 UTC under renewed
+explicit `prd` approval, fresh preflight and restore/off-host-verified backup.
+See the [deployment report](2026-11-17-wikisavvy-permission-foundation-deployment.md)
+for the initial safe rollback, verifier-fixture recovery and successful retry.
+Historical guard state and expired approvals must not be reused.

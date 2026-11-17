@@ -14,6 +14,16 @@ Local continuation after the audit deployment. The user approved:
 
 No commit, push or new production deployment is included in this continuation.
 
+## Release follow-up — 2026-11-17
+
+The user subsequently requested commit/push/deploy. The policy foundation and
+smoke-harness correction were deployed as source `91f6cc88` at 13:46 UTC after
+renewed explicit production approval, fresh restore/off-host-verified backup and
+75 HTTPS checks. See the
+[deployment report](2026-11-17-wikisavvy-permission-foundation-deployment.md).
+The foundation remains unwired: mutation services, API/UI, capability registration
+and the remaining acceptance gates below are **not complete or enabled**.
+
 ## Progress — 2026-11-16 18:50 UTC
 
 Step 1 is implemented and verified locally as an **unwired policy foundation**.
