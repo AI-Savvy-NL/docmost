@@ -47,3 +47,38 @@ describe('SessionService socket disconnects', () => {
     );
   });
 });
+
+describe('SessionService transaction propagation', () => {
+  it.each([true, false])(
+    'passes the caller transaction to session insertion: %s',
+    async (transactional) => {
+      const trx = transactional ? { isTransaction: true } : undefined;
+      const insertSession = jest
+        .fn()
+        .mockResolvedValue({ id: 'synthetic-session-id' });
+      const generateAccessToken = jest
+        .fn()
+        .mockResolvedValue('synthetic-signed-value');
+      const service = new SessionService(
+        { generateAccessToken } as any,
+        { insertSession } as any,
+        { getCookieExpiresIn: () => new Date('2026-11-19T00:00:00Z') } as any,
+        { get: () => undefined } as any,
+        {} as any,
+      );
+      const user = { id: 'synthetic-user', workspaceId: 'synthetic-workspace' };
+      await service.createSessionAndToken(user as any, trx as any);
+      expect(insertSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: user.id,
+          workspaceId: user.workspaceId,
+        }),
+        trx,
+      );
+      expect(generateAccessToken).toHaveBeenCalledWith(
+        user,
+        'synthetic-session-id',
+      );
+    },
+  );
+});

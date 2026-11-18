@@ -84,16 +84,41 @@ export class AuthService {
       throw new UnauthorizedException(errorMessage);
     }
 
-    throwIfEmailNotVerified({
-      isCloud: this.environmentService.isCloud(),
-      emailVerifiedAt: user.emailVerifiedAt,
-      email: user.email,
-      workspaceId,
-      appSecret: this.environmentService.getAppSecret(),
-    });
+    const authToken = await executeTx(this.db, async (trx) => {
+      const account = await trx
+        .selectFrom('users')
+        .select('id')
+        .where('id', '=', user.id)
+        .where('workspaceId', '=', workspaceId)
+        .forNoKeyUpdate()
+        .executeTakeFirst();
+      if (!account) throw new UnauthorizedException(errorMessage);
 
-    user.lastLoginAt = new Date();
-    await this.userRepo.updateLastLogin(user.id, workspaceId);
+      const current = await this.userRepo.findById(user.id, workspaceId, {
+        includePassword: true,
+        trx,
+      });
+      if (
+        !current ||
+        isUserDisabled(current) ||
+        current.password !== user.password ||
+        current.email.toLowerCase() !== loginDto.email.toLowerCase()
+      ) {
+        throw new UnauthorizedException(errorMessage);
+      }
+
+      throwIfEmailNotVerified({
+        isCloud: this.environmentService.isCloud(),
+        emailVerifiedAt: current.emailVerifiedAt,
+        email: current.email,
+        workspaceId,
+        appSecret: this.environmentService.getAppSecret(),
+      });
+
+      current.lastLoginAt = new Date();
+      await this.userRepo.updateLastLogin(current.id, workspaceId, trx);
+      return this.sessionService.createSessionAndToken(current, trx);
+    });
 
     this.auditService.setActorId(user.id);
     this.auditService.log({
@@ -103,7 +128,7 @@ export class AuthService {
       metadata: { source: 'password' },
     });
 
-    return this.sessionService.createSessionAndToken(user);
+    return authToken;
   }
 
   async register(createUserDto: CreateUserDto, workspaceId: string) {
@@ -143,24 +168,49 @@ export class AuthService {
     }
 
     const newPasswordHash = await hashPassword(dto.newPassword);
-    await this.userRepo.updateUser(
-      {
-        password: newPasswordHash,
-        hasGeneratedPassword: false,
-      },
-      userId,
-      workspaceId,
-    );
+    await executeTx(this.db, async (trx) => {
+      const account = await trx
+        .selectFrom('users')
+        .select('id')
+        .where('id', '=', userId)
+        .where('workspaceId', '=', workspaceId)
+        .forNoKeyUpdate()
+        .executeTakeFirst();
+      if (!account) throw new NotFoundException('User not found');
 
-    if (currentSessionId) {
-      await this.userSessionRepo.deleteAllExceptCurrent(
-        currentSessionId,
+      const current = await this.userRepo.findById(userId, workspaceId, {
+        includePassword: true,
+        trx,
+      });
+      if (!current || isUserDisabled(current)) {
+        throw new NotFoundException('User not found');
+      }
+      if (current.password !== user.password) {
+        throw new BadRequestException('Current password is incorrect');
+      }
+
+      await this.userRepo.updateUser(
+        { password: newPasswordHash, hasGeneratedPassword: false },
         userId,
         workspaceId,
+        trx,
       );
+
+      if (currentSessionId) {
+        await this.userSessionRepo.deleteAllExceptCurrent(
+          currentSessionId,
+          userId,
+          workspaceId,
+          trx,
+        );
+      } else {
+        await this.userSessionRepo.deleteByUserId(userId, workspaceId, trx);
+      }
+    });
+
+    if (currentSessionId) {
       this.wsService.disconnectOtherSessions(userId, currentSessionId);
     } else {
-      await this.userSessionRepo.deleteByUserId(userId, workspaceId);
       this.wsService.disconnectUser(userId);
     }
 

@@ -4,6 +4,7 @@ import { TokenService } from '../auth/services/token.service';
 import { UserSessionRepo } from '@docmost/db/repos/session/user-session.repo';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
 import { User } from '@docmost/db/types/entity.types';
+import { KyselyTransaction } from '@docmost/db/types/kysely.types';
 import { ClsService } from 'nestjs-cls';
 import {
   AuditContext,
@@ -38,7 +39,10 @@ export class SessionService {
     }
   }
 
-  async createSessionAndToken(user: User): Promise<string> {
+  async createSessionAndToken(
+    user: User,
+    trx?: KyselyTransaction,
+  ): Promise<string> {
     const auditContext = this.cls.get<AuditContext>(AUDIT_CONTEXT_KEY);
     const ipAddress = auditContext?.ipAddress ?? null;
     const userAgent = auditContext?.userAgent ?? null;
@@ -46,13 +50,16 @@ export class SessionService {
     const deviceName = this.parseDeviceName(userAgent);
     const expiresAt = this.environmentService.getCookieExpiresIn();
 
-    const session = await this.userSessionRepo.insertSession({
-      userId: user.id,
-      workspaceId: user.workspaceId,
-      deviceName,
-      ipAddress,
-      expiresAt,
-    });
+    const session = await this.userSessionRepo.insertSession(
+      {
+        userId: user.id,
+        workspaceId: user.workspaceId,
+        deviceName,
+        ipAddress,
+        expiresAt,
+      },
+      trx,
+    );
 
     return this.tokenService.generateAccessToken(user, session.id);
   }

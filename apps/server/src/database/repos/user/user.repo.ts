@@ -99,8 +99,13 @@ export class UserRepo {
       .execute();
   }
 
-  async updateLastLogin(userId: string, workspaceId: string) {
-    return await this.db
+  async updateLastLogin(
+    userId: string,
+    workspaceId: string,
+    trx?: KyselyTransaction,
+  ) {
+    const db = dbOrTx(this.db, trx);
+    return await db
       .updateTable('users')
       .set({
         lastLoginAt: new Date(),

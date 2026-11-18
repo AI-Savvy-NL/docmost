@@ -11,20 +11,47 @@ describe('Successful login audit identity', () => {
   const userId = '22222222-2222-4222-8222-222222222222';
   const workspaceId = '11111111-1111-4111-8111-111111111111';
   function setup() {
+    const user = {
+      id: userId,
+      workspaceId,
+      email: 'test@example.invalid',
+      password: 'synthetic-hash',
+      deletedAt: null,
+      deactivatedAt: null,
+    };
     const userRepo = {
-      findByEmail: jest.fn().mockResolvedValue({
-        id: userId, workspaceId, email: 'test@example.invalid',
-        password: 'synthetic-hash', deletedAt: null, deactivatedAt: null,
-      }),
+      findByEmail: jest.fn().mockResolvedValue(user),
+      findById: jest.fn().mockResolvedValue(user),
       updateLastLogin: jest.fn(),
     };
+    const query = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      forNoKeyUpdate: jest.fn().mockReturnThis(),
+      executeTakeFirst: jest.fn().mockResolvedValue({ id: userId }),
+    };
+    const trx = { selectFrom: jest.fn(() => query) };
+    const db = {
+      transaction: () => ({ execute: (callback: any) => callback(trx) }),
+    };
     const audit = { setActorId: jest.fn(), log: jest.fn() };
-    const sessions = { createSessionAndToken: jest.fn().mockResolvedValue('synthetic-session') };
+    const sessions = {
+      createSessionAndToken: jest.fn().mockResolvedValue('synthetic-session'),
+    };
     const service = new AuthService(
-      {} as any, {} as any, sessions as any, {} as any, userRepo as any,
-      {} as any, {} as any, {} as any,
+      {} as any,
+      {} as any,
+      sessions as any,
+      {} as any,
+      userRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
       { isCloud: () => false, getAppSecret: () => 'x'.repeat(32) } as any,
-      {} as any, {} as any, audit as any, {} as any,
+      {} as any,
+      db as any,
+      audit as any,
+      {} as any,
     );
     return { service, audit, sessions };
   }
@@ -32,17 +59,43 @@ describe('Successful login audit identity', () => {
   afterEach(() => jest.clearAllMocks());
   it('sets the authenticated actor before recording the login', async () => {
     const { service, audit } = setup();
-    await service.login({ email: 'test@example.invalid', password: 'synthetic-input' }, workspaceId);
+    await service.login(
+      { email: 'test@example.invalid', password: 'synthetic-input' },
+      workspaceId,
+    );
     expect(audit.setActorId).toHaveBeenCalledWith(userId);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ event: AuditEvent.USER_LOGIN }));
-    expect(audit.setActorId.mock.invocationCallOrder[0]).toBeLessThan(audit.log.mock.invocationCallOrder[0]);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ event: AuditEvent.USER_LOGIN }),
+    );
+    expect(audit.setActorId.mock.invocationCallOrder[0]).toBeLessThan(
+      audit.log.mock.invocationCallOrder[0],
+    );
   });
   it('does not assign an authenticated actor to failed credentials', async () => {
     jest.mocked(comparePasswordHash).mockResolvedValue(false);
     const { service, audit, sessions } = setup();
-    await expect(service.login({ email: 'test@example.invalid', password: 'synthetic-input' }, workspaceId)).rejects.toThrow();
+    await expect(
+      service.login(
+        { email: 'test@example.invalid', password: 'synthetic-input' },
+        workspaceId,
+      ),
+    ).rejects.toThrow();
     expect(audit.setActorId).not.toHaveBeenCalled();
     expect(audit.log).not.toHaveBeenCalled();
     expect(sessions.createSessionAndToken).not.toHaveBeenCalled();
+  });
+  it('does not audit a successful login when session creation fails', async () => {
+    const { service, audit, sessions } = setup();
+    sessions.createSessionAndToken.mockRejectedValueOnce(
+      new Error('synthetic-signing-failure'),
+    );
+    await expect(
+      service.login(
+        { email: 'test@example.invalid', password: 'synthetic-input' },
+        workspaceId,
+      ),
+    ).rejects.toThrow('synthetic-signing-failure');
+    expect(audit.setActorId).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
   });
 });
