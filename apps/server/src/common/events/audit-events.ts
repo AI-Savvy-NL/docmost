@@ -103,6 +103,7 @@ export const AuditEvent = {
   // SSO provider management
   SSO_PROVIDER_CREATED: 'sso.provider_created',
   SSO_PROVIDER_UPDATED: 'sso.provider_updated',
+  SSO_ACCOUNT_LINKED: 'sso.account_linked',
   SSO_PROVIDER_DELETED: 'sso.provider_deleted',
 
   // MFA

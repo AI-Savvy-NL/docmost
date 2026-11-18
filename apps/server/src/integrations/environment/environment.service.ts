@@ -23,6 +23,10 @@ export class EnvironmentService {
     return origin;
   }
 
+  getOidcAllowedOrigins(): string {
+    return this.configService.get<string>('WIKISAVVY_OIDC_ALLOWED_ORIGINS', '');
+  }
+
   isHttps(): boolean {
     const appUrl = this.configService.get<string>('APP_URL');
     try {

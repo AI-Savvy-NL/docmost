@@ -188,14 +188,28 @@ export function isUserDisabled(user: {
   return !!(user.deactivatedAt || user.deletedAt);
 }
 
-const SENSITIVE_URL_PREFIXES = ['/api/sso/', '/api/integrations/oauth/'];
+const SENSITIVE_URL_PREFIXES = [
+  '/api/sso/',
+  '/api/oidc/',
+  '/api/integrations/oauth/',
+];
 
 export function redactSensitiveUrl(url: string): string {
-  if (url && SENSITIVE_URL_PREFIXES.some((prefix) => url.includes(prefix))) {
-    const qsIndex = url.indexOf('?');
-    if (qsIndex !== -1) {
-      return url.substring(0, qsIndex);
-    }
+  if (!url) return url;
+  const qsIndex = url.indexOf('?');
+  if (qsIndex === -1) return url;
+  const path = url.substring(0, qsIndex);
+  let decodedPath = path;
+  try {
+    decodedPath = decodeURIComponent(path);
+  } catch {
+    decodedPath = path;
   }
+  if (
+    SENSITIVE_URL_PREFIXES.some(
+      (prefix) => url.includes(prefix) || decodedPath.includes(prefix),
+    )
+  )
+    return path;
   return url;
 }

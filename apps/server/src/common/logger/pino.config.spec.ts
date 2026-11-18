@@ -31,4 +31,16 @@ describe('createPinoConfig request serializer', () => {
   it('falls back to the socket address when no ip was resolved', () => {
     expect(serializeRequest(raw)).toMatchObject({ ip: '172.18.0.2' });
   });
+
+  it.each(['/api/oidc/callback', '/api/o%69dc/callback'])(
+    'redacts OIDC callback proofs, including encoded paths: %s',
+    (path) => {
+      const result = serializeRequest({
+        ...raw,
+        method: 'GET',
+        url: `${path}?code=synthetic-proof&state=synthetic-state`,
+      });
+      expect(result.url).toBe(path);
+    },
+  );
 });

@@ -5,10 +5,18 @@ import {
   WikisavvyLicenseEvents,
 } from './wikisavvy-license.types';
 import { WikisavvyPagePermissionRevisions } from './wikisavvy-page-permission.types';
+import {
+  WikisavvyOidcProviders,
+  WikisavvyOidcIdentities,
+  WikisavvyOidcTransactions,
+} from './wikisavvy-oidc.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
   wikisavvyLicenses: WikisavvyLicenses;
   wikisavvyLicenseEvents: WikisavvyLicenseEvents;
   wikisavvyPagePermissionRevisions: WikisavvyPagePermissionRevisions;
+  wikisavvyOidcProviders: WikisavvyOidcProviders;
+  wikisavvyOidcIdentities: WikisavvyOidcIdentities;
+  wikisavvyOidcTransactions: WikisavvyOidcTransactions;
 }
