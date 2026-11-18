@@ -150,26 +150,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('password-reset')
   async passwordReset(
-    @Res({ passthrough: true }) res: FastifyReply,
     @Body() passwordResetDto: PasswordResetDto,
     @AuthWorkspace() workspace: Workspace,
   ) {
-    const result = await this.authService.passwordReset(
-      passwordResetDto,
-      workspace,
-    );
-
-    if (result.requiresLogin) {
-      return {
-        requiresLogin: true,
-      };
-    }
-
-    // Set auth cookie if no MFA is required
-    this.setAuthCookie(res, result.authToken);
-    return {
-      requiresLogin: false,
-    };
+    await this.authService.passwordReset(passwordResetDto, workspace);
+    return { requiresLogin: true };
   }
 
   @HttpCode(HttpStatus.OK)

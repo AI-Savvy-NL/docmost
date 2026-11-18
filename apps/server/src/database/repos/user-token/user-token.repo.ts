@@ -7,6 +7,7 @@ import { KyselyDB, KyselyTransaction } from '@docmost/db/types/kysely.types';
 import { dbOrTx } from '@docmost/db/utils';
 import { Injectable } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
+import { UserTokenType } from '../../../core/auth/auth.constants';
 
 @Injectable()
 export class UserTokenRepo {
@@ -44,6 +45,27 @@ export class UserTokenRepo {
     return db
       .insertInto('userTokens')
       .values(insertableUserToken)
+      .returningAll()
+      .executeTakeFirst();
+  }
+
+  async consumePasswordResetToken(
+    token: string,
+    workspaceId: string,
+    userId: string,
+    trx: KyselyTransaction,
+  ): Promise<UserToken | undefined> {
+    if (!trx?.isTransaction) {
+      throw new Error('Reset token consumption requires a transaction');
+    }
+    return trx
+      .deleteFrom('userTokens')
+      .where('token', '=', token)
+      .where('workspaceId', '=', workspaceId)
+      .where('userId', '=', userId)
+      .where('type', '=', UserTokenType.FORGOT_PASSWORD)
+      .where('usedAt', 'is', null)
+      .where('expiresAt', '>', new Date())
       .returningAll()
       .executeTakeFirst();
   }

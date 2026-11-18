@@ -139,22 +139,13 @@ export default function useAuth() {
     setIsLoading(true);
 
     try {
-      const response = await passwordReset(data);
+      await passwordReset(data);
       setIsLoading(false);
 
-      if (response?.requiresLogin) {
-        notifications.show({
-          message: t(
-            "Password reset was successful. Please log in with your new password.",
-          ),
-        });
-        navigate(APP_ROUTE.AUTH.LOGIN);
-      } else {
-        navigate(APP_ROUTE.HOME);
-        notifications.show({
-          message: t("Password reset was successful"),
-        });
-      }
+      notifications.show({
+        message: t("Password reset was successful. Please sign in again."),
+      });
+      navigate(APP_ROUTE.AUTH.LOGIN);
     } catch (err) {
       setIsLoading(false);
       notifications.show({

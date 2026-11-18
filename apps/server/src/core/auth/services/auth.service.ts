@@ -245,39 +245,65 @@ export class AuthService {
     if (
       !userToken ||
       userToken.type !== UserTokenType.FORGOT_PASSWORD ||
-      userToken.expiresAt < new Date()
+      userToken.usedAt ||
+      !userToken.expiresAt ||
+      userToken.expiresAt <= new Date()
     ) {
       throw new BadRequestException('Invalid or expired token');
     }
 
-    const user = await this.userRepo.findById(userToken.userId, workspace.id, {
-      includeUserMfa: true,
-    });
-    if (!user || isUserDisabled(user)) {
-      throw new NotFoundException('User not found');
-    }
-
     const newPasswordHash = await hashPassword(passwordResetDto.newPassword);
 
-    await executeTx(this.db, async (trx) => {
+    const user = await executeTx(this.db, async (trx) => {
+      // Serialize recovery without blocking replacement-token foreign-key checks.
+      const account = await trx
+        .selectFrom('users')
+        .select('id')
+        .where('id', '=', userToken.userId)
+        .where('workspaceId', '=', workspace.id)
+        .forNoKeyUpdate()
+        .executeTakeFirst();
+      if (!account) throw new NotFoundException('User not found');
+
+      const consumed = await this.userTokenRepo.consumePasswordResetToken(
+        passwordResetDto.token,
+        workspace.id,
+        account.id,
+        trx,
+      );
+      if (!consumed) {
+        throw new BadRequestException('Invalid or expired token');
+      }
+      const current = await this.userRepo.findById(account.id, workspace.id, {
+        trx,
+      });
+      if (!current || isUserDisabled(current)) {
+        throw new NotFoundException('User not found');
+      }
       await this.userRepo.updateUser(
         {
           password: newPasswordHash,
           hasGeneratedPassword: false,
+          ...(this.environmentService.isCloud() && !current.emailVerifiedAt
+            ? { emailVerifiedAt: new Date() }
+            : {}),
         },
-        user.id,
+        current.id,
         workspace.id,
         trx,
       );
 
       await trx
         .deleteFrom('userTokens')
-        .where('userId', '=', user.id)
+        .where('userId', '=', current.id)
+        .where('workspaceId', '=', workspace.id)
         .where('type', '=', UserTokenType.FORGOT_PASSWORD)
         .execute();
+
+      await this.userSessionRepo.deleteByUserId(current.id, workspace.id, trx);
+      return current;
     });
 
-    await this.userSessionRepo.deleteByUserId(user.id, workspace.id);
     this.wsService.disconnectUser(user.id);
 
     // A failed revocation must not block the reset itself; log loudly instead.
@@ -307,26 +333,7 @@ export class AuthService {
       template: emailTemplate,
     });
 
-    if (this.environmentService.isCloud() && !user.emailVerifiedAt) {
-      await this.userRepo.updateUser(
-        { emailVerifiedAt: new Date() },
-        user.id,
-        workspace.id,
-      );
-    }
-
-    // Check if user has MFA enabled or workspace enforces MFA
-    const userHasMfa = user?.['mfa']?.isEnabled || false;
-    const workspaceEnforcesMfa = workspace.enforceMfa || false;
-
-    if (userHasMfa || workspaceEnforcesMfa) {
-      return {
-        requiresLogin: true,
-      };
-    }
-
-    const authToken = await this.sessionService.createSessionAndToken(user);
-    return { authToken };
+    return { requiresLogin: true };
   }
 
   async verifyUserToken(
