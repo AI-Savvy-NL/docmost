@@ -197,7 +197,7 @@ export default function SettingsSidebar() {
     // a lapsed license must still reach the export switch to turn it off
     if (
       item.path === "/settings/security" &&
-      workspace?.settings?.export?.disabled
+      (isOwner || workspace?.settings?.export?.disabled)
     ) {
       return false;
     }
@@ -235,8 +235,10 @@ export default function SettingsSidebar() {
               break;
             case "Security & SSO":
               prefetchHandler = () => {
-                prefetchSsoProviders();
-                prefetchScimTokens();
+                if (hasFeature(Feature.SECURITY_SETTINGS)) {
+                  prefetchSsoProviders();
+                  prefetchScimTokens();
+                }
               };
               break;
             case "Public sharing":

@@ -11,13 +11,7 @@ import {
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getOidcStatus,
-  linkOidc,
-  OidcProvider,
-  redirectToOidc,
-} from "./oidc-service";
-import { OidcProviderForm } from "./oidc-provider-form";
+import { getOidcStatus, linkOidc, redirectToOidc } from "./oidc-service";
 
 export function OidcAccount() {
   const { t } = useTranslation();
@@ -30,8 +24,6 @@ export function OidcAccount() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [editing, setEditing] = useState<OidcProvider | null | undefined>();
-  const [saved, setSaved] = useState(false);
   async function begin(event: React.FormEvent) {
     event.preventDefault();
     if (!linking || !password || busy) return;
@@ -75,13 +67,12 @@ export function OidcAccount() {
           "Optional OIDC sign-in for existing accounts. Linking requires your current password and confirmation at the identity provider.",
         )}
       </Text>
-      {((new URLSearchParams(window.location.search).get("oidc") === "linked" &&
-        linked) ||
-        saved) && (
-        <Alert color="green" role="status">
-          {saved ? t("SSO provider saved.") : t("Your SSO account is linked.")}
-        </Alert>
-      )}
+      {new URLSearchParams(window.location.search).get("oidc") === "linked" &&
+        linked && (
+          <Alert color="green" role="status">
+            {t("Your SSO account is linked.")}
+          </Alert>
+        )}
       {!data.providers.length && (
         <Text size="sm" c="dimmed">
           {t("No SSO provider is enabled. Password login remains available.")}
@@ -115,19 +106,6 @@ export function OidcAccount() {
                 }}
               >
                 {t("Link account")}
-              </Button>
-            )}
-            {data.canManage && (
-              <Button
-                variant="subtle"
-                size="xs"
-                disabled={busy}
-                onClick={() => {
-                  setEditing(provider);
-                  setSaved(false);
-                }}
-              >
-                {t("Edit SSO provider")}
               </Button>
             )}
           </Group>
@@ -174,30 +152,6 @@ export function OidcAccount() {
             </Group>
           </Stack>
         </form>
-      )}
-      {data.canManage && editing === undefined && (
-        <Button
-          variant="outline"
-          onClick={() => {
-            setEditing(null);
-            setSaved(false);
-          }}
-        >
-          {t("Configure SSO provider")}
-        </Button>
-      )}
-      {data.canManage && editing !== undefined && (
-        <OidcProviderForm
-          key={editing?.id ?? "new"}
-          provider={editing ?? undefined}
-          callbackUrl={data.callbackUrl}
-          onCancel={() => setEditing(undefined)}
-          onSaved={() => {
-            setEditing(undefined);
-            setSaved(true);
-            void status.refetch();
-          }}
-        />
       )}
     </Stack>
   );

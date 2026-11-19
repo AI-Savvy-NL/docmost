@@ -23,10 +23,12 @@ import { useTranslation } from "react-i18next";
 
 export function useGetScimTokensQuery(
   params?: QueryParams,
+  enabled = true,
 ): UseQueryResult<IPagination<IScimToken>, Error> {
   return useQuery({
     queryKey: ["scim-token-list", params],
     queryFn: () => getScimTokens(params),
+    enabled,
     placeholderData: keepPreviousData,
   });
 }

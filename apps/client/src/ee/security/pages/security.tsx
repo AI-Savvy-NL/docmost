@@ -38,6 +38,7 @@ import { useCursorPaginate } from "@/hooks/use-cursor-paginate";
 import Paginate from "@/components/common/paginate";
 import { IScimToken } from "@/ee/scim/types/scim-token.types";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
+import { OidcWorkspace } from "@/features/oidc/oidc-workspace";
 
 const SCIM_TOKEN_LIMIT = 5;
 
@@ -45,6 +46,7 @@ export default function Security() {
   const { t } = useTranslation();
   const { isAdmin } = useUserRole();
   const hasCustomSso = useHasFeature(Feature.SSO_CUSTOM);
+  const hasSecuritySettings = useHasFeature(Feature.SECURITY_SETTINGS);
   const hasScim = useHasFeature(Feature.SCIM);
   const [workspace] = useAtom(workspaceAtom);
   const isScimEnabled = workspace?.isScimEnabled ?? false;
@@ -52,6 +54,7 @@ export default function Security() {
   const { cursor, goNext, goPrev } = useCursorPaginate();
   const { data: scimData, isLoading: scimLoading } = useGetScimTokensQuery(
     hasScim && isScimEnabled ? { cursor } : undefined,
+    isAdmin && hasScim && isScimEnabled,
   );
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -65,8 +68,8 @@ export default function Security() {
 
   return (
     <>
-      <DocumentTitle title="Security" />
-      <SettingsTitle title={t("Security")} />
+      <DocumentTitle title="Security & SSO" />
+      <SettingsTitle title={t("Security & SSO")} />
 
       <EnforceMfa />
 
@@ -85,6 +88,9 @@ export default function Security() {
         {t("Single sign-on (SSO)")}
       </Title>
 
+      <OidcWorkspace />
+      <Divider my="lg" />
+
       <EnforceSso />
       <Divider my="lg" />
 
@@ -102,7 +108,7 @@ export default function Security() {
         </>
       )}
 
-      <SsoProviderList />
+      {(hasSecuritySettings || hasCustomSso) && <SsoProviderList />}
 
       {hasScim && (
         <>

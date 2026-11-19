@@ -18,6 +18,7 @@ import {
 } from "vitest";
 import { OidcLogin } from "./oidc-login";
 import { OidcAccount } from "./oidc-account";
+import { OidcWorkspace } from "./oidc-workspace";
 
 const api = vi.hoisted(() => ({
   providers: vi.fn(),
@@ -181,9 +182,22 @@ describe("Independent optional SSO controls", () => {
       /automatic signup|SSO required/,
     );
   });
-  it("requires explicit enablement and password confirmation in the owner form", async () => {
+  it("keeps owner provider management out of the personal profile", async () => {
     api.status.mockResolvedValue({ ...status, canManage: true });
     show(<OidcAccount />);
+    expect(
+      await screen.findByRole("button", { name: "Link account" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Configure SSO provider" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Edit SSO provider" }),
+    ).toBeNull();
+  });
+  it("requires explicit enablement and password confirmation in the owner form", async () => {
+    api.status.mockResolvedValue({ ...status, canManage: true });
+    show(<OidcWorkspace />);
     fireEvent.click(
       await screen.findByRole("button", { name: "Configure SSO provider" }),
     );
@@ -220,7 +234,7 @@ describe("Independent optional SSO controls", () => {
   it("clears sensitive owner form inputs after a failed request", async () => {
     api.status.mockResolvedValue({ ...status, canManage: true });
     api.configure.mockRejectedValue(new Error("synthetic-save-error"));
-    show(<OidcAccount />);
+    show(<OidcWorkspace />);
     fireEvent.click(
       await screen.findByRole("button", { name: "Configure SSO provider" }),
     );
@@ -273,7 +287,7 @@ describe("Independent optional SSO controls", () => {
 
   it("focuses new provider configuration and labels its keyboard-accessible secret toggle", async () => {
     api.status.mockResolvedValue({ ...status, canManage: true });
-    show(<OidcAccount />);
+    show(<OidcWorkspace />);
     fireEvent.click(
       await screen.findByRole("button", { name: "Configure SSO provider" }),
     );
@@ -286,5 +300,42 @@ describe("Independent optional SSO controls", () => {
         }) as HTMLButtonElement
       ).tabIndex,
     ).toBe(0);
+  });
+  it("keeps non-owner workspace management unavailable", async () => {
+    show(<OidcWorkspace />);
+    expect(
+      await screen.findByText(
+        "Only the workspace owner can manage SSO providers.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Configure SSO provider" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Edit SSO provider" }),
+    ).toBeNull();
+    expect(api.configure).not.toHaveBeenCalled();
+  });
+  it("keeps personal linking out of workspace configuration", async () => {
+    api.status.mockResolvedValue({ ...status, canManage: true });
+    show(<OidcWorkspace />);
+    expect(
+      await screen.findByRole("button", { name: "Edit SSO provider" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Link account" })).toBeNull();
+    expect(api.link).not.toHaveBeenCalled();
+  });
+  it("allows retry after a workspace status failure", async () => {
+    api.status
+      .mockRejectedValueOnce(new Error("synthetic-status-error"))
+      .mockResolvedValue({ ...status, canManage: true, providers: [] });
+    show(<OidcWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Retry SSO status" }),
+    );
+    expect(
+      await screen.findByText("No OIDC provider is configured."),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("synthetic-status-error");
   });
 });

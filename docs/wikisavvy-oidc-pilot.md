@@ -1,8 +1,9 @@
 # Optional independent OIDC pilot
 
-This is a local pilot, not a deployed or live-Authentik-verified feature. It uses
-the independently owned `core/oidc` backend and `features/oidc` UI, not the legacy
-EE SSO implementation. Existing password login remains available.
+This guide describes the independently owned `core/oidc` backend and
+`features/oidc` UI, not the legacy EE SSO implementation. Deployment, provider
+activation and live browser acceptance are separate operator steps. Existing
+password login remains available.
 
 ## Prerequisites
 
@@ -24,6 +25,9 @@ EE SSO implementation. Existing password login remains available.
 Server-to-provider requests use DNS-pinned outbound agents and normal certificate
 verification. Existing private-network policy still applies; the origin allowlist
 does not override it. Certificate failures are errors, not reasons to disable TLS.
+If the issuer resolves to a private proxy, review an exact address/HTTPS-port
+allowance in `ALLOWED_PRIVATE_NETWORKS`; that policy affects other application
+outbound requests too. Do not allow an entire LAN or use `all` for SSO setup.
 
 The optional pilot refuses workspaces enforcing SSO or MFA and accounts with
 enabled local MFA, rather than silently bypassing those policies. Integrating
@@ -39,7 +43,8 @@ The steps below describe the UI; they are not approval to perform those actions.
 1. Review/apply the owned migrations in an approved environment. The foundation
    adds a composite users key, so its locking/runtime impact needs rollout review.
 2. Configure the application HTTPS URL and explicit issuer-origin allowlist.
-3. In **My Profile → Single sign-on**, the owner opens **Configure SSO provider**.
+3. In **Workspace → Security & SSO → Single sign-on (SSO)**, the owner opens
+   **Configure SSO provider**.
    The form displays the exact callback URL to register with the IdP:
    `/api/oidc/callback` on the configured workspace origin.
 4. Enter the exact issuer, client identifier and client secret. Confirm the
@@ -47,7 +52,8 @@ The steps below describe the UI; they are not approval to perform those actions.
    explicitly selects **Enable optional SSO**.
 5. Enabling verifies discovery and supported endpoint/signing configuration. It
    cannot prove a client secret is correct until an actual authorization flow.
-6. Each existing user selects **Link account**, confirms their current password
+6. In **Account → Profile → Single sign-on**, each existing user selects
+   **Link account**, confirms their current password
    and completes authentication at the IdP. Linking does not create a new account,
    issue a new app session or replace somebody else's identity binding.
 7. On the login page, the linked user can choose **Sign in with SSO**. A successful
@@ -58,6 +64,22 @@ Owner edits keep issuer/client identity keys fixed. An empty secret on edit
 preserves the encrypted secret; supplying a new secret rotates it. Configuration
 updates invalidate pending flows through a revision change. Disabling a provider
 blocks new SSO attempts, not existing application sessions.
+
+The original **Security & SSO** menu is available to the workspace owner for
+independent provider management. This does not grant unrelated legacy Enterprise
+features or enable SSO/MFA enforcement. Personal linking stays in Profile.
+
+## Optional proxy gate
+
+A separately approved Authentik forward-auth gate can protect the entire wiki
+before WikiSavvy login. It is not a replacement for native account linking or
+the application's persisted session and authorization checks.
+
+Verify real linking and native SSO login before publishing the gate. An Authentik
+outage then also blocks public password login; APIs, health checks and WebSocket
+handshakes are gated unless a separate explicit exception has been reviewed.
+WikiSavvy logout does not log out of Authentik. No IdP impersonation or email-only
+binding is an acceptable shortcut for the user's real browser login/MFA.
 
 ## Protocol and failure behavior
 
