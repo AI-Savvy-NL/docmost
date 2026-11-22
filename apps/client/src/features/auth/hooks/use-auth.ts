@@ -156,9 +156,20 @@ export default function useAuth() {
   };
 
   const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      // 401 means the server no longer has a valid session for this cookie
+      if (err?.response?.status !== 401) {
+        notifications.show({
+          message: t("Could not sign out. Please try again."),
+          color: "red",
+        });
+        return;
+      }
+    }
     setCurrentUser(RESET);
     await deleteLocalPageData();
-    await logout();
     window.location.replace(`${APP_ROUTE.AUTH.LOGIN}?logout=1`);
   };
 

@@ -27,6 +27,21 @@ describe("deleteLocalPageData", () => {
     expect(deleteDatabase.mock.calls).toEqual([["page.a"], ["page.b"]]);
   });
 
+  it("gives up after a bounded wait when IndexedDB never responds", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("indexedDB", {
+        databases: () => new Promise(() => {}),
+        deleteDatabase: vi.fn(),
+      });
+      const pending = deleteLocalPageData();
+      await vi.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does nothing when the browser cannot list databases", async () => {
     vi.stubGlobal("indexedDB", { deleteDatabase: vi.fn() });
 
