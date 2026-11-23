@@ -77,7 +77,7 @@ integration('Optional SSO pilot with isolated PostgreSQL', () => {
         codeVerifier: randomBytes(32).toString('base64url'),
       };
     }),
-    complete: jest.fn(async () => ({ issuer, subject: 'fixture-subject' })),
+    complete: jest.fn(async () => ({ issuer, subject: 'fixture-subject', amr: ['pwd', 'mfa'] })),
   };
   const environment = {
     getAppSecret: () => fixtureSecret,
@@ -266,7 +266,7 @@ integration('Optional SSO pilot with isolated PostgreSQL', () => {
     });
     protocol.complete
       .mockReset()
-      .mockResolvedValue({ issuer, subject: 'fixture-subject' });
+      .mockResolvedValue({ issuer, subject: 'fixture-subject', amr: ['pwd', 'mfa'] });
     await db.deleteFrom('wikisavvyOidcTransactions').execute();
     await db.deleteFrom('wikisavvyOidcIdentities').execute();
     await db.deleteFrom('wikisavvyOidcProviders').execute();
@@ -377,6 +377,25 @@ integration('Optional SSO pilot with isolated PostgreSQL', () => {
     expect((await sessions.findActiveById(payload.sessionId))?.userId).toBe(
       userId,
     );
+  });
+
+  it('refuses SSO when Authentik did not report a second factor, before any identity or session is written', async () => {
+    const start = await service.start(workspaceId, providerId);
+    const countIdentities = async () =>
+      Number(
+        (
+          await db
+            .selectFrom('wikisavvy_oidc_identities')
+            .select(db.fn.countAll().as('n'))
+            .executeTakeFirstOrThrow()
+        ).n,
+      );
+    const before = await countIdentities();
+    protocol.complete.mockResolvedValueOnce({ issuer, subject: 'fixture-subject', amr: ['pwd'] });
+    await expect(
+      service.complete(workspaceId, callbackFor(start), start.browserBinding),
+    ).rejects.toThrow('SSO verification failed');
+    expect(await countIdentities()).toBe(before);
   });
 
   it('rejects a callback from a different browser without consuming the correct flow', async () => {
@@ -769,7 +788,7 @@ integration('Optional SSO pilot with isolated PostgreSQL', () => {
         .set({ isEnabled: false, revision: 2 })
         .where('id', '=', providerId)
         .execute();
-      return { issuer, subject: 'fixture-subject' };
+      return { issuer, subject: 'fixture-subject', amr: ['pwd', 'mfa'] };
     });
     await expect(
       service.complete(workspaceId, callbackFor(start), start.browserBinding),
@@ -935,6 +954,7 @@ integration('Optional SSO pilot with isolated PostgreSQL', () => {
             JSON.stringify({
               iss: issuer,
               sub: 'fixture-subject',
+              amr: ['pwd', 'mfa'],
               aud: 'fixture-client',
               iat: now,
               exp: now + 120,

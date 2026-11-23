@@ -86,6 +86,8 @@ function fixture(failure?: string) {
           claims.exp = now - 120;
         }
         if (failure === 'subject') claims.sub = '';
+        if (failure === 'amr-mfa') claims.amr = ['pwd', 'mfa'];
+        if (failure === 'amr-malformed') claims.amr = 'mfa';
         const header = Buffer.from(
           JSON.stringify({
             alg: failure === 'unsigned' ? 'none' : 'RS256',
@@ -149,11 +151,25 @@ scoped(
         new URL(`${callback}?code=synthetic-code&state=${proof.state}`),
         proof,
       );
-      expect(result).toEqual({ issuer, subject: 'stable-subject' });
+      expect(result).toEqual({ issuer, subject: 'stable-subject', amr: [] });
       expect(f.calls()).toBe(1);
       expect(
         f.fetched.mock.calls.some((call) => call[1].endsWith('/jwks')),
       ).toBe(true);
+    });
+
+    it.each([
+      ['amr-mfa', ['pwd', 'mfa']],
+      ['amr-malformed', []],
+    ])('reports signed authentication methods: %s', async (mode, amr) => {
+      const f = fixture(mode);
+      const proof = await f.start();
+      const result = await f.protocol.complete(
+        f.provider,
+        new URL(`${callback}?code=synthetic-code&state=${proof.state}`),
+        proof,
+      );
+      expect(result.amr).toEqual(amr);
     });
 
     it.each([

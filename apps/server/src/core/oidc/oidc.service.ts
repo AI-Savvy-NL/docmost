@@ -23,6 +23,7 @@ import { UserRole } from '../../common/helpers/types/permission';
 import { comparePasswordHash, isUserDisabled } from '../../common/helpers';
 import { WikisavvyOidcRepo } from './oidc.repo';
 import { OidcProof, WikisavvyOidcProtocol } from './oidc-protocol';
+import { satisfiesRequiredMfa } from './oidc-mfa';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
 import { throwIfEmailNotVerified } from '../auth/auth.util';
 
@@ -419,6 +420,8 @@ export class WikisavvyOidcService {
         proof,
       );
       if (identity.issuer !== provider.issuer) throw fail();
+      // Authentik's own MFA policy is the second factor; refuse SSO without it.
+      if (!satisfiesRequiredMfa(identity.amr)) throw fail();
       const binding =
         proof.flow === 'login'
           ? await this.repo.findIdentity(

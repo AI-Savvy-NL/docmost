@@ -114,7 +114,10 @@ export class WikisavvyOidcProtocol {
         !/^[\x20-\x7e]{1,255}$/.test(claims.sub)
       )
         throw new Error();
-      return { issuer: provider.issuer, subject: claims.sub };
+      const amr = Array.isArray(claims.amr)
+        ? claims.amr.filter((v): v is string => typeof v === 'string')
+        : [];
+      return { issuer: provider.issuer, subject: claims.sub, amr };
     } catch {
       throw new Error('SSO verification failed');
     }
