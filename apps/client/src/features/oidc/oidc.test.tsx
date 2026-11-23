@@ -95,8 +95,51 @@ describe("Independent optional SSO controls", () => {
     });
     api.configure.mockResolvedValue(provider);
     window.history.replaceState(null, "", "/login");
+    sessionStorage.setItem("wikisavvy-oidc-auto", String(Date.now()));
   });
   afterEach(cleanup);
+
+  describe("automatic sign-in", () => {
+    beforeEach(() => sessionStorage.clear());
+
+    it("starts SSO automatically when exactly one provider is enabled", async () => {
+      show(<OidcLogin />);
+      await waitFor(() => expect(api.start).toHaveBeenCalledWith(provider.id));
+      expect(api.redirect).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["/login?logout=1", "/login?oidc=error"])(
+      "does not start automatically at %s",
+      async (path) => {
+        window.history.replaceState(null, "", path);
+        show(<OidcLogin />);
+        await screen.findByRole("button", { name: /Sign in with SSO/ });
+        expect(api.start).not.toHaveBeenCalled();
+      },
+    );
+
+    it("does not loop when an automatic attempt just happened", async () => {
+      sessionStorage.setItem("wikisavvy-oidc-auto", String(Date.now()));
+      show(<OidcLogin />);
+      await screen.findByRole("button", { name: /Sign in with SSO/ });
+      expect(api.start).not.toHaveBeenCalled();
+    });
+
+    it("does not choose between multiple providers", async () => {
+      api.providers.mockResolvedValue([
+        { id: provider.id, issuer: "https://identity.example.invalid" },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          issuer: "https://other.example.invalid",
+        },
+      ]);
+      show(<OidcLogin />);
+      expect(
+        await screen.findAllByRole("button", { name: /Sign in with SSO/ }),
+      ).toHaveLength(2);
+      expect(api.start).not.toHaveBeenCalled();
+    });
+  });
 
   it("starts optional SSO without requesting or transmitting a local password", async () => {
     show(<OidcLogin />);
