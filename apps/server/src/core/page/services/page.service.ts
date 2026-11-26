@@ -122,6 +122,7 @@ export class PageService {
     createPageDto: CreatePageDto,
     trx?: KyselyTransaction,
     isBase: boolean = false,
+    pageId?: string,
   ): Promise<Page> {
     let parentPageId = undefined;
 
@@ -158,6 +159,7 @@ export class PageService {
     }
 
     const page = await this.pageRepo.insertPage({
+      ...(pageId ? { id: pageId } : {}),
       slugId: generateSlugId(),
       title: createPageDto.title,
       position: await this.nextPagePosition(
@@ -1380,6 +1382,20 @@ export class PageService {
     workspaceId: string,
   ): Promise<void> {
     await this.pageRepo.removePage(pageId, userId, workspaceId);
+  }
+
+  validateDocumentContent(content: any): void {
+    try {
+      const schema = jsonToNode({
+        type: 'doc',
+        content: [{ type: 'paragraph' }],
+      }).type.schema;
+      const doc = schema.nodeFromJSON(content);
+      if (doc.type.name !== 'doc') throw new Error('Invalid document root');
+      doc.check();
+    } catch {
+      throw new BadRequestException('Invalid document content');
+    }
   }
 
   private async parseProsemirrorContent(

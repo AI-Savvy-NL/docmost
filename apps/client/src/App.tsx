@@ -83,9 +83,9 @@ const AuditLogs = lazyWithPrefetch(
 const VerifiedPages = lazyWithPrefetch(
   () => import("@/ee/page-verification/pages/verified-pages.tsx"),
 );
-const TemplateList = lazyWithPrefetch(() => import("@/ee/template/pages/template-list"));
+const TemplateList = lazyWithPrefetch(() => import("@/features/template/templates-page"));
 const TemplateEditor = lazyWithPrefetch(
-  () => import("@/ee/template/pages/template-editor"),
+  () => import("@/features/template/template-detail"),
 );
 const FavoritesPage = lazyWithPrefetch(() => import("@/pages/favorites/favorites-page"));
 const VerifyEmail = lazyWithPrefetch(() => import("@/ee/pages/verify-email.tsx"));

@@ -22,4 +22,5 @@ export type DestinationPickerModalProps = {
   pageLimit?: number;
   initialSpaceId?: string;
   searchSpacesOnly?: boolean;
+  error?: string;
 };

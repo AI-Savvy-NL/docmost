@@ -44,7 +44,8 @@ export class TemplateRepo {
       .$if(opts?.includeContent ?? false, (qb) => qb.select('content'))
       .select((eb) => [this.withCreator(eb)])
       .where('id', '=', templateId)
-      .where('workspaceId', '=', workspaceId);
+      .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is', null);
 
     return query.executeTakeFirst() as Promise<Template>;
   }
@@ -59,7 +60,8 @@ export class TemplateRepo {
       .selectFrom('templates')
       .select(this.baseFields)
       .select((eb) => [this.withCreator(eb)])
-      .where('workspaceId', '=', workspaceId);
+      .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is', null);
 
     if (opts?.spaceId) {
       if (!accessibleSpaceIds.includes(opts.spaceId)) {

@@ -5,6 +5,7 @@ import {
   WikisavvyLicenseEvents,
 } from './wikisavvy-license.types';
 import { WikisavvyPagePermissionRevisions } from './wikisavvy-page-permission.types';
+import { WikisavvyTemplateFileCleanup } from './wikisavvy-template.types';
 import {
   WikisavvyOidcProviders,
   WikisavvyOidcIdentities,
@@ -19,4 +20,5 @@ export interface DbInterface extends DB {
   wikisavvyOidcProviders: WikisavvyOidcProviders;
   wikisavvyOidcIdentities: WikisavvyOidcIdentities;
   wikisavvyOidcTransactions: WikisavvyOidcTransactions;
+  wikisavvyTemplateFileCleanup: WikisavvyTemplateFileCleanup;
 }

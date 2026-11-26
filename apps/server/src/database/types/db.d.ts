@@ -78,6 +78,7 @@ export interface Attachments {
   pageId: string | null;
   spaceId: string | null;
   textContent: string | null;
+  templateId: string | null;
   tsv: string | null;
   type: string | null;
   updatedAt: Generated<Timestamp>;

@@ -55,11 +55,8 @@ import { mobileSidebarAtom } from "@/components/layouts/global/hooks/atoms/sideb
 import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-toggle-sidebar.ts";
 import { searchSpotlight } from "@/features/search/constants";
 const TemplatePickerModal = React.lazy(
-  () => import("@/ee/template/components/template-picker-modal"),
+  () => import("@/features/template/template-picker"),
 );
-import { useHasFeature } from "@/ee/hooks/use-feature";
-import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";
-import { Feature } from "@/ee/features";
 import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
 import { ErrorBoundary } from "react-error-boundary";
 
@@ -261,8 +258,6 @@ function SpaceMenu({
     templatePickerOpened,
     { open: openTemplatePicker, close: closeTemplatePicker },
   ] = useDisclosure(false);
-  const hasTemplates = useHasFeature(Feature.TEMPLATES);
-  const upgradeLabel = useUpgradeLabel();
   const { exportDisabled, exportDisabledLabel } = useExportDisabled(spaceSlug);
 
   const { data: watchStatus } = useSpaceWatchStatusQuery(spaceId);
@@ -336,21 +331,12 @@ function SpaceMenu({
           {canManagePages && (
             <>
               <Menu.Divider />
-              <Tooltip
-                label={upgradeLabel}
-                disabled={hasTemplates}
-                position="right"
-                withArrow
+              <Menu.Item
+                onClick={openTemplatePicker}
+                leftSection={<IconTemplate size={16} />}
               >
-                <Menu.Item
-                  onClick={hasTemplates ? openTemplatePicker : undefined}
-                  leftSection={<IconTemplate size={16} />}
-                  data-disabled={!hasTemplates || undefined}
-                  aria-disabled={!hasTemplates || undefined}
-                >
-                  {t("Templates")}
-                </Menu.Item>
-              </Tooltip>
+                {t("Templates")}
+              </Menu.Item>
             </>
           )}
 
@@ -419,7 +405,7 @@ function SpaceMenu({
         </>
       )}
 
-      {hasTemplates && templatePickerOpened && (
+      {templatePickerOpened && (
         <ErrorBoundary fallbackRender={() => null}>
           <React.Suspense fallback={null}>
             <TemplatePickerModal

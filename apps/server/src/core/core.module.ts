@@ -32,12 +32,14 @@ import { ClsMiddleware } from 'nestjs-cls';
 import { WikisavvyLicensingModule } from './licensing/licensing.module';
 import { WikisavvyPagePermissionModule } from './page-permissions/page-permission.module';
 import { WikisavvyOidcModule } from './oidc/oidc.module';
+import { TemplateModule } from './template/template.module';
 
 @Module({
   imports: [
     WikisavvyLicensingModule,
     WikisavvyPagePermissionModule,
     WikisavvyOidcModule,
+    TemplateModule,
     UserModule,
     AuthModule,
     WorkspaceModule,

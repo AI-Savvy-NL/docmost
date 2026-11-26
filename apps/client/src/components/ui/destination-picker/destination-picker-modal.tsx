@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Modal, Button, Group, Divider } from "@mantine/core";
+import { Modal, Button, Group, Divider, Alert } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { DestinationPicker } from "./destination-picker";
 import {
@@ -18,6 +18,7 @@ export function DestinationPickerModal({
   pageLimit,
   initialSpaceId,
   searchSpacesOnly,
+  error,
 }: DestinationPickerModalProps) {
   const { t } = useTranslation();
   const [selection, setSelection] = useState<DestinationSelection | null>(null);
@@ -53,6 +54,7 @@ export function DestinationPickerModal({
           />
 
           <Divider my="md" />
+          {error && <Alert color="red" role="alert" mb="md">{error}</Alert>}
 
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>

@@ -18,13 +18,12 @@ import {
 } from "@/features/editor/atoms/editor-atoms";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { Feature } from "@/ee/features";
-import { ITemplate } from "@/ee/template/types/template.types";
-import { getTemplateById } from "@/ee/template/services/template-service.ts";
-import { applyTemplateToPage } from "@/ee/template/template.utils";
+import { TemplateRecord, prepareTemplate } from "@/features/template/template-api";
+import { applyPreparedTemplate } from "@/features/template/template-editor-utils";
 import classes from "./empty-page-get-started.module.css";
 
 const TemplatePickerModal = lazy(
-  () => import("@/ee/template/components/template-picker-modal"),
+  () => import("@/features/template/template-picker"),
 );
 
 type EmptyPageGetStartedProps = {
@@ -43,7 +42,6 @@ export function EmptyPageGetStarted({
   const titleEditor = useAtomValue(titleEditorAtom);
   const isSynced = useAtomValue(yjsSyncedAtom);
   const hasBases = useHasFeature(Feature.BASES);
-  const hasTemplates = useHasFeature(Feature.TEMPLATES);
   const convertMutation = useConvertPageToBaseMutation();
   const [
     templatePickerOpened,
@@ -63,17 +61,8 @@ export function EmptyPageGetStarted({
     };
   }, [editor]);
 
-  const handleUseTemplate = async (selected: ITemplate) => {
-    let template: ITemplate;
-    try {
-      template = await getTemplateById(selected.id);
-    } catch {
-      notifications.show({
-        message: t("Failed to load template"),
-        color: "red",
-      });
-      return;
-    }
+  const handleUseTemplate = async (selected: TemplateRecord) => {
+    const template = await prepareTemplate(selected.id, pageId);
 
     if (
       !editor ||
@@ -84,7 +73,7 @@ export function EmptyPageGetStarted({
       return;
     }
 
-    if (!applyTemplateToPage(editor, titleEditor, template)) {
+    if (!applyPreparedTemplate(editor, titleEditor, template)) {
       notifications.show({
         message: t("This page is no longer empty"),
         color: "red",
@@ -114,18 +103,14 @@ export function EmptyPageGetStarted({
           },
         ]
       : []),
-    ...(hasTemplates
-      ? [
-          {
-            key: "template",
-            label: t("Template"),
-            icon: IconTemplate,
-            color: "pink",
-            onClick: openTemplatePicker,
-            disabled: false,
-          },
-        ]
-      : []),
+    {
+      key: "template",
+      label: t("Template"),
+      icon: IconTemplate,
+      color: "pink",
+      onClick: openTemplatePicker,
+      disabled: false,
+    },
   ];
 
   const showChips =
@@ -161,7 +146,7 @@ export function EmptyPageGetStarted({
         </div>
       )}
 
-      {hasTemplates && templatePickerOpened && (
+      {templatePickerOpened && (
         <ErrorBoundary fallbackRender={() => null}>
           <Suspense fallback={null}>
             <TemplatePickerModal
