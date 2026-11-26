@@ -223,10 +223,53 @@ Remaining release gates:
    PostgreSQL/Redis and real sessions/files, without a server bind mount. This
    verifies native core page creation, document validation, all source migrations,
    source-page/source-space deletion, file independence, tenant/session denial and
-   audit sanitization. The runner is not yet a passing result.
+   audit sanitization.
 4. Build/runtime and rollback-image compatibility checks before pushing the release.
 5. Obtain explicit approval of the exact `prd` target/window, then fresh backup,
    isolated restore/off-host verification and the reviewed cutover procedure.
-   Apply only this additive migration; retain the current `21e78f20` image for
-   non-destructive app rollback without reversing/removing stored template data.
+   Apply only this additive migration; use the schema-aware recovery image
+   described below without reversing/removing stored template data.
    No Caddy, Authentik, DNS, license or environment changes are included.
+
+## Verified release and recovery artifacts (2026-11-26)
+
+Status: code pushed and artifacts locally verified; **not deployed**.
+
+- Release source: `c49a7effb3b8b552d2d224b9daad47c1f4753171`, pushed to
+  `AI-Savvy-NL/docmost` `main` and read-back verified.
+- Complete amd64 image: `wikisavvy:2026.11.26-c49a7eff`,
+  `sha256:1f750966176ead41e48cba9f97a5da2fd6aa9aa893a8683c1bb8cb5fe2ca0a48`.
+- Exact-image native acceptance: **55 checks passed**, all **66 migrations**,
+  real persisted sessions, PostgreSQL, Redis, core page/Yjs creation and physical
+  file storage, without a compiled-server bind mount. Source page and source space
+  deletion preserve templates; deleting templates preserves target-page files.
+- Recovery source: `7bd575569ab5b57fbf2cf79d33d5883e0d9237cc`. This detached local
+  recovery worktree differs from the previous application commit `21e78f20` in
+  exactly one file: the byte-identical forward migration from the release.
+- Recovery image: `wikisavvy:2026.11.26-7bd57556`,
+  `sha256:03683837dcd6a417a86b322bc505662cadbc24ba2d59cc1651c0b284155ced15`.
+- `scripts/test-wikisavvy-templates-recovery.mjs`: **23 checks passed**. The
+  untouched old image is explicitly shown to refuse startup against the upgraded
+  database because Kysely rejects an applied migration missing from its provider.
+  The schema-aware previous-code image starts healthy and retains exact template,
+  attachment, page-content and migration fingerprints. Returning to the release
+  restores template access and identical physical file bytes.
+- The first recovery fixture attempt failed with `templates/create` 403: its
+  owner had not explicitly confirmed restricted-source publication. Correcting
+  the fixture request, not the application policy, made the rehearsal pass.
+- The former claim that the untouched `21e78f20` image could provide image-only
+  recovery after this migration is invalid. Do not use it for that rollback, do
+  not edit migration history, and do not reverse the ownership migration while
+  template files exist.
+
+The recovery source/worktree and build context remain local; the recovery image
+has not been staged remotely. Private build/runtime/recovery logs are under the
+session's `wikisavvy-templates-20261126` evidence directory. The follow-up test and
+documentation changes do not modify the application source in `c49a7eff`.
+
+Remaining before production: explicit approval for this release, the single
+additive migration and the schema-aware recovery target within a fresh UTC
+window; read-only drift/preflight checks; consistent backup, isolated restore and
+off-host verification; staging and artifact-equivalence checks; guarded cutover;
+local/proxy/HTTPS verification. Manual rendered-browser and multi-client editing
+acceptance have not been performed by these test runners.
